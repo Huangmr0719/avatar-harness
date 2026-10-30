@@ -190,4 +190,6 @@ Go 将 TTS 的真实最终音频送给 `operation: animate`：
 | TTS Delay | `tts.first_audio` 的 segment=0，首段合成工作开始到上游首音频包，不等同有声播放 |
 | LLM Delay | `llm.first_speech`，本轮首次 LLM 请求开始到首个已提交的可播报正文，包含结构化前缀及可能的工具往返 |
 
+若模型遗漏 `<speak/>` 标记，工具可用时仍等待完整回答确认没有工具调用，再记录 LLM Delay 并送入 TTS；不会把工具前言当作首个有效回答，也不会用整轮生成耗时补造计时。
+
 语音合成与模型生成可以重叠；Total 还包括 VAD、ASR、分段、排队和网络等，因此不要求三个分项之和等于 Total。音画确认另保留“已同步／待确认”状态，hover 可查实际音画反馈时间。

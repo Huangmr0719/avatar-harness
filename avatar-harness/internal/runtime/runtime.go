@@ -181,6 +181,12 @@ func (r *Runtime) run(t *Turn, text string, media bool, inherited []map[string]a
 	}
 	var firstLLMStarted time.Time
 	firstSpeechTimed := false
+	timeFirstSpeech := func() {
+		if !firstSpeechTimed {
+			firstSpeechTimed = true
+			r.Emit(t, "pipeline.timing", map[string]any{"stage": "llm.first_speech", "elapsed_ms": float64(time.Since(firstLLMStarted).Microseconds()) / 1000})
+		}
+	}
 	for batch := 0; batch <= r.Config.Limits.MaxToolBatches; batch++ {
 		tools := []map[string]any{}
 		if batch < r.Config.Limits.MaxToolBatches {
@@ -199,9 +205,8 @@ func (r *Runtime) run(t *Turn, text string, media bool, inherited []map[string]a
 			}
 			textOut += value
 			r.Emit(t, "assistant.delta", map[string]any{"text": value, "draft": draft && !gate.Committed})
-			if (!draft || gate.Committed) && !firstSpeechTimed {
-				firstSpeechTimed = true
-				r.Emit(t, "pipeline.timing", map[string]any{"stage": "llm.first_speech", "elapsed_ms": float64(time.Since(firstLLMStarted).Microseconds()) / 1000})
+			if !draft || gate.Committed {
+				timeFirstSpeech()
 			}
 			if (!draft || gate.Committed) && speech != nil {
 				return speech.Feed(value, false)
@@ -279,9 +284,14 @@ func (r *Runtime) run(t *Turn, text string, media bool, inherited []map[string]a
 				runErr = fmt.Errorf("模型返回空回答")
 				return
 			}
-			if speech != nil && draft && !gate.Committed {
-				if runErr = speech.Feed(textOut, false); runErr != nil {
-					return
+			if draft && !gate.Committed {
+				// An unmarked answer becomes speakable only after the provider
+				// confirms there are no tool calls. Time this fallback too.
+				timeFirstSpeech()
+				if speech != nil {
+					if runErr = speech.Feed(textOut, false); runErr != nil {
+						return
+					}
 				}
 			}
 			answer := map[string]any{"role": "assistant", "content": textOut}
