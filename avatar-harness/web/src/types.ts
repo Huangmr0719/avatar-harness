@@ -6,5 +6,5 @@ export interface State { version: string; runtime: string; providers: Record<str
 export interface Session { id: string; character_id: string; title: string; created_at: number }
 export interface HarnessEvent { seq: number; session_id: string; turn_id: string | null; type: string; at: number; data: Record<string, any> }
 export interface Entry { id: string; at: number; kind: 'user' | 'assistant' | 'tool' | 'notice'; text: string; turn_id?: string; name?: string; status?: string; args?: unknown; result?: unknown; source?: string; elapsed_ms?: number; draft?: boolean }
-export interface MotionFrame { offset_ms?: number; pts_ms?: number; blendshapes?: Record<string, number>; expressions?: Record<string, number>; head_quaternion?: number[] }
+export interface MotionFrame { offset_ms?: number; pts_ms?: number; blendshapes?: Record<string, number>; expressions?: Record<string, number>; head_quaternion?: number[]; speech_energy?: number }
 export interface AudioSegment { pts_ms: number; start_ms: number; duration_ms: number }

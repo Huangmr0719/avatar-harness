@@ -11,6 +11,7 @@ export class ExpressionControl {
   private turn: string | null = null
   private automatic: ExpressionState = { mode: 'auto', style: 'neutral', intensity: .7, source: 'default' }
   private timer?: ReturnType<typeof setTimeout>
+  private releaseAt = 0
   private changed: (state: ExpressionState) => void
   constructor(changed: (state: ExpressionState) => void) { this.changed = changed }
   get state(): ExpressionState {
@@ -18,7 +19,7 @@ export class ExpressionControl {
   }
   begin(turn: string) { this.cancel(); this.turn = turn }
   cancel() {
-    this.turn = null; clearTimeout(this.timer)
+    this.turn = null; clearTimeout(this.timer); this.releaseAt = 0
     this.automatic = { mode: 'auto', style: 'neutral', intensity: .7, source: 'default' }
     this.changed(this.state)
   }
@@ -33,8 +34,20 @@ export class ExpressionControl {
     clearTimeout(this.timer)
     this.automatic = { mode: 'auto', style: data.style as ExpressionStyle, intensity, source: 'llm' }
     this.changed(this.state)
-    this.timer = setTimeout(() => { if (this.turn === turn) { this.automatic = { mode: 'auto', style: 'neutral', intensity: .7, source: 'default' }; this.changed(this.state) } }, duration)
-    if (typeof this.timer === 'object' && 'unref' in this.timer) (this.timer as { unref: () => void }).unref()
+    this.releaseAt = Math.max(this.releaseAt, performance.now() + duration)
+    this.scheduleRelease(turn)
     return true
+  }
+  // The original fixed TTL could return to a blank face while audio still ran.
+  holdThrough(turn: string, playbackEnd: number): boolean {
+    if (this.turn !== turn || this.automatic.source !== 'llm' || !Number.isFinite(playbackEnd)) return false
+    this.releaseAt = Math.max(this.releaseAt, playbackEnd + 250)
+    this.scheduleRelease(turn)
+    return true
+  }
+  private scheduleRelease(turn: string) {
+    clearTimeout(this.timer)
+    this.timer = setTimeout(() => { if (this.turn === turn) { this.releaseAt = 0; this.automatic = { mode: 'auto', style: 'neutral', intensity: .7, source: 'default' }; this.changed(this.state) } }, Math.max(0, this.releaseAt - performance.now()))
+    if (typeof this.timer === 'object' && 'unref' in this.timer) (this.timer as { unref: () => void }).unref()
   }
 }

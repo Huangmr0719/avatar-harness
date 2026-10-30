@@ -1,4 +1,5 @@
 import type { MotionFrame } from './types'
+import { speechEnergyCurve } from './speechEnergy.ts'
 
 // A rolling second of real PCM supplies the model's fixed input. Only the newly
 // received suffix is emitted, so context is never replayed as new motion.
@@ -52,11 +53,12 @@ export class LamSpeech {
       this.lastInferenceMS = result.elapsed_ms
       const total = result.weights.length / 52, duration = part.length / 16
       const n = Math.max(1, Math.round(duration * total / 1000))
+      const energy = speechEnergyCurve(part, n, this.context)
       for (let i = 0; i < n; i++) {
         const index = Math.max(0, total - n + i)
         const blendshapes: Record<string, number> = {}
         this.names.forEach((name, k) => { blendshapes[name] = Math.max(0, Math.min(1, result.weights[index * 52 + k])) })
-        frames.push({ pts_ms: pts + offset / 16 + i * duration / n, blendshapes })
+        frames.push({ pts_ms: pts + offset / 16 + i * duration / n, blendshapes, speech_energy: energy[i] })
       }
     }
     return frames

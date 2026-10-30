@@ -4,7 +4,7 @@ import { AvatarTimeline } from './avatarTimeline'
 import { LamSpeech } from './lamSpeech'
 import type { AudioSegment, MotionFrame } from './types'
 import type { ExpressionStyle } from './expressionControl'
-import { ExpressionMixer } from './expressionMixer'
+import { applyBlink, ExpressionMixer } from './expressionMixer'
 
 export class LamView {
   private renderer?: GaussianSplatRenderer
@@ -41,10 +41,9 @@ export class LamView {
   setExpression(style: ExpressionStyle, intensity = 1) { this.mixer.set(style, intensity, this.pad) }
   private expression() {
     const now = performance.now(), sample = this.isSpeaking() ? this.timeline.sample(now) : null
-    const values = this.mixer.sample(now, sample?.frame.blendshapes)
+    const values = this.mixer.sample(now, sample?.frame.blendshapes, sample?.frame.speech_energy)
     const phase = (now / 1000) % 4.3, blink = Math.max(0, 1 - Math.abs(phase - 4.05) / .1)
-    values.eyeBlinkLeft = Math.max(values.eyeBlinkLeft ?? 0, blink)
-    values.eyeBlinkRight = Math.max(values.eyeBlinkRight ?? 0, blink)
+    applyBlink(values, blink)
     // This callback runs inside the SDK render loop. Publish after the same
     // frame has drawn, only when real inferred motion and audio are active.
     if (sample) queueMicrotask(() => {

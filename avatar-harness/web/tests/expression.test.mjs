@@ -45,3 +45,15 @@ test('invalid controls never alter the face and elapsed automatic emotion resets
   assert.equal(control.state.style,'neutral')
   control.cancel()
 })
+
+test('matching scheduled audio holds emotion past its TTL while old turns cannot hold it',async()=>{
+  const control=new ExpressionControl(()=>{});control.begin('turn')
+  control.apply('turn',{style:'happy',intensity:.7,duration_ms:500})
+  assert.equal(control.holdThrough('old',performance.now()+10000),false)
+  assert.equal(control.holdThrough('turn',performance.now()+800),true)
+  await new Promise(r=>setTimeout(r,600))
+  assert.equal(control.state.style,'happy')
+  control.cancel()
+  assert.equal(control.state.style,'neutral')
+  assert.equal(control.holdThrough('turn',performance.now()+800),false)
+})

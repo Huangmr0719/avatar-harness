@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { ARKIT_NAMES, arkitFrame } from '../src/arkit.ts'
-import { ExpressionMixer } from '../src/expressionMixer.ts'
+import { applyBlink, ExpressionMixer } from '../src/expressionMixer.ts'
 import { BASIC_EMOTIONS } from '../src/expressionControl.ts'
 
 test('official LAM channel order maps jaw and eyes without position ambiguity', () => {
@@ -47,4 +47,32 @@ test('seven emotions have distinct bounded face poses without overriding phoneti
     assert.ok(Object.values(zero.sample(0)).every(value=>value===0))
   }
   assert.equal(signatures.size,7)
+})
+
+test('speech accents move a neutral brow, decay in silence, and never replace articulation',()=>{
+  const mixer=new ExpressionMixer();mixer.set('neutral',.6)
+  mixer.sample(0,{jawOpen:.1},0)
+  const accent=mixer.sample(100,{jawOpen:.65},1)
+  assert.ok(accent.browInnerUp>.02&&accent.browOuterUpLeft>.02)
+  assert.equal(accent.jawOpen,.65)
+  const quiet=mixer.sample(2500,{},0)
+  assert.ok(quiet.browInnerUp<.001&&quiet.browOuterUpLeft<.001)
+  assert.equal(quiet.jawOpen,0)
+})
+
+test('requested affect controls cheeks and lids even with competing audio predictions',()=>{
+  const mixer=new ExpressionMixer();mixer.set('happy',1)
+  const frame=mixer.sample(0,{mouthFrownLeft:1,eyeWideLeft:1,mouthClose:.4,jawLeft:.2})
+  assert.ok(frame.cheekSquintLeft>.6&&frame.eyeSquintLeft>.3)
+  assert.ok(frame.mouthFrownLeft<.2&&frame.eyeWideLeft<.2)
+  assert.equal(frame.mouthClose,.4);assert.equal(frame.jawLeft,.2)
+})
+
+test('a full blink closes raised lids while preserving the rest of the expression',()=>{
+  const mixer=new ExpressionMixer();mixer.set('surprised',1)
+  const face=mixer.sample(0),blink=applyBlink({...face},1)
+  assert.ok(face.eyeWideLeft>.9)
+  assert.equal(blink.eyeWideLeft,0);assert.equal(blink.eyeWideRight,0)
+  assert.equal(blink.eyeBlinkLeft,1);assert.equal(blink.eyeBlinkRight,1)
+  assert.equal(blink.browInnerUp,face.browInnerUp)
 })

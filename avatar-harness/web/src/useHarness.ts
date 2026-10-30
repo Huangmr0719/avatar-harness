@@ -41,6 +41,7 @@ export function useHarness() {
     mediaHooks.value?.audio(segment)
     const tid = activeTurn.value, session = selected.value
     if (!tid || !session) return
+    expressionControl.holdThrough(tid, segment.start_ms + segment.duration_ms)
     const verify = () => {
       if (activeTurn.value !== tid || reported) return
       const probe = mediaHooks.value?.probe(), now = performance.now()
