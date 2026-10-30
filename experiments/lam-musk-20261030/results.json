@@ -1,0 +1,98 @@
+[
+  {
+    "id": "royal-2018",
+    "status": "ok",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Elon_Musk_Royal_Society.jpg",
+    "motion": "/data2/huangmr/code/avatar-harness/upstream/LAM/assets/sample_motion/export/I_Am_Iron_Man/I_Am_Iron_Man.mp4",
+    "seconds": 74.874,
+    "service_outputs": [
+      "/data2/huangmr/code/avatar-harness/experiments/lam-musk-20261030/outputs/royal-2018/downloads/c8761ad7b4b85bd8169f5b1aa97ba00a27a3f946/tmp9dc43tzw.png",
+      "/data2/huangmr/code/avatar-harness/experiments/lam-musk-20261030/outputs/royal-2018/downloads/80861cad526230ecf59380220909d6421d98930b/output_audio.mp4",
+      "/data2/huangmr/code/avatar-harness/experiments/lam-musk-20261030/outputs/royal-2018/downloads/a41901478129275f0e789344b50eedaa776893b7/avatar-tmpuwm1auw7.zip"
+    ],
+    "zip_bytes": 4059258,
+    "zip_sha256": "edd40867d8173a1b65abdf8e5877c6732c9b8d58031f1f68fb40c920ab078ab9",
+    "morph_count": 51,
+    "brows": [
+      "browDownLeft",
+      "browDownRight",
+      "browInnerUp",
+      "browOuterUpLeft",
+      "browOuterUpRight"
+    ],
+    "animation_clips": [
+      "yumi_h5_a3_idle",
+      "yumi_h5_a3_speak_1",
+      "yumi_h5_a3_speak_2",
+      "yumi_h5_a3_speak_3",
+      "yumi_h5_a3_speak_4",
+      "yumi_h5_a3_speak",
+      "yumi_h5_a3_speak_end"
+    ],
+    "output_dir": "/data2/huangmr/code/avatar-harness/experiments/lam-musk-20261030/outputs/royal-2018"
+  },
+  {
+    "id": "brazil-2022",
+    "status": "ok",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Elon_Musk_Brazil_2022.png",
+    "motion": "/data2/huangmr/code/avatar-harness/upstream/LAM/assets/sample_motion/export/I_Am_Iron_Man/I_Am_Iron_Man.mp4",
+    "seconds": 77.828,
+    "service_outputs": [
+      "/data2/huangmr/code/avatar-harness/experiments/lam-musk-20261030/outputs/brazil-2022/downloads/d298180230f69b1b502a2e378d66bbc0e4630704/tmphgjhs1wj.png",
+      "/data2/huangmr/code/avatar-harness/experiments/lam-musk-20261030/outputs/brazil-2022/downloads/05a359a2fdea09add9bb181fc9476696d9e8b504/output_audio.mp4",
+      "/data2/huangmr/code/avatar-harness/experiments/lam-musk-20261030/outputs/brazil-2022/downloads/509c1846a47981ebb6df65a60e773b89198cb2c8/avatar-tmpmtj1jmu4.zip"
+    ],
+    "zip_bytes": 4059343,
+    "zip_sha256": "5410245090414a893126a16e4b8c8e546d25dfeabf047b634d4e169437ef33b5",
+    "morph_count": 51,
+    "brows": [
+      "browDownLeft",
+      "browDownRight",
+      "browInnerUp",
+      "browOuterUpLeft",
+      "browOuterUpRight"
+    ],
+    "animation_clips": [
+      "yumi_h5_a3_idle",
+      "yumi_h5_a3_speak_1",
+      "yumi_h5_a3_speak_2",
+      "yumi_h5_a3_speak_3",
+      "yumi_h5_a3_speak_4",
+      "yumi_h5_a3_speak",
+      "yumi_h5_a3_speak_end"
+    ],
+    "output_dir": "/data2/huangmr/code/avatar-harness/experiments/lam-musk-20261030/outputs/brazil-2022"
+  },
+  {
+    "id": "colorado-2022",
+    "status": "ok",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Elon_Musk_Colorado_2022_(cropped_2).jpg",
+    "motion": "/data2/huangmr/code/avatar-harness/upstream/LAM/assets/sample_motion/export/I_Am_Iron_Man/I_Am_Iron_Man.mp4",
+    "seconds": 46.584,
+    "service_outputs": [
+      "/data2/huangmr/code/avatar-harness/experiments/lam-musk-20261030/outputs/colorado-2022/downloads/4428b1fc147687a66da683fa7b8e03f0570abb5a/tmpeuh5mbyv.png",
+      "/data2/huangmr/code/avatar-harness/experiments/lam-musk-20261030/outputs/colorado-2022/downloads/049cf2addffc22664bb9daa4ecbf1811df26a96a/output_audio.mp4",
+      "/data2/huangmr/code/avatar-harness/experiments/lam-musk-20261030/outputs/colorado-2022/downloads/100b0dbb16339e3c333f38285108199101e357e3/avatar-tmp3jwlj9d5.zip"
+    ],
+    "zip_bytes": 4062969,
+    "zip_sha256": "324805f6c556a02bae9278b9f7982284390b07149a0d05feb08b66a0568f0ec7",
+    "morph_count": 51,
+    "brows": [
+      "browDownLeft",
+      "browDownRight",
+      "browInnerUp",
+      "browOuterUpLeft",
+      "browOuterUpRight"
+    ],
+    "animation_clips": [
+      "yumi_h5_a3_idle",
+      "yumi_h5_a3_speak_1",
+      "yumi_h5_a3_speak_2",
+      "yumi_h5_a3_speak_3",
+      "yumi_h5_a3_speak_4",
+      "yumi_h5_a3_speak",
+      "yumi_h5_a3_speak_end"
+    ],
+    "output_dir": "/data2/huangmr/code/avatar-harness/experiments/lam-musk-20261030/outputs/colorado-2022"
+  }
+]

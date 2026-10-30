@@ -1,0 +1,156 @@
+[
+  {
+    "ms": 12,
+    "diagnostics": 0,
+    "heading": "1 / 7 · 中性",
+    "phase": "准备语音",
+    "theatrical": true
+  },
+  {
+    "ms": 672,
+    "diagnostics": 0,
+    "heading": "1 / 7 · 中性",
+    "phase": "正在播放",
+    "theatrical": true
+  },
+  {
+    "ms": 4494,
+    "diagnostics": 0,
+    "heading": "1 / 7 · 中性",
+    "phase": "表情停留",
+    "theatrical": true
+  },
+  {
+    "ms": 5581,
+    "diagnostics": 0,
+    "heading": "2 / 7 · 快乐",
+    "phase": "准备语音",
+    "theatrical": true
+  },
+  {
+    "ms": 6242,
+    "diagnostics": 0,
+    "heading": "2 / 7 · 快乐",
+    "phase": "正在播放",
+    "theatrical": true
+  },
+  {
+    "ms": 10407,
+    "diagnostics": 0,
+    "heading": "2 / 7 · 快乐",
+    "phase": "表情停留",
+    "theatrical": true
+  },
+  {
+    "ms": 11477,
+    "diagnostics": 0,
+    "heading": "3 / 7 · 悲伤",
+    "phase": "准备语音",
+    "theatrical": true
+  },
+  {
+    "ms": 12132,
+    "diagnostics": 0,
+    "heading": "3 / 7 · 悲伤",
+    "phase": "正在播放",
+    "theatrical": true
+  },
+  {
+    "ms": 16397,
+    "diagnostics": 0,
+    "heading": "3 / 7 · 悲伤",
+    "phase": "表情停留",
+    "theatrical": true
+  },
+  {
+    "ms": 17552,
+    "diagnostics": 0,
+    "heading": "4 / 7 · 愤怒",
+    "phase": "准备语音",
+    "theatrical": true
+  },
+  {
+    "ms": 18208,
+    "diagnostics": 0,
+    "heading": "4 / 7 · 愤怒",
+    "phase": "正在播放",
+    "theatrical": true
+  },
+  {
+    "ms": 22292,
+    "diagnostics": 0,
+    "heading": "4 / 7 · 愤怒",
+    "phase": "表情停留",
+    "theatrical": true
+  },
+  {
+    "ms": 23417,
+    "diagnostics": 0,
+    "heading": "5 / 7 · 恐惧",
+    "phase": "准备语音",
+    "theatrical": true
+  },
+  {
+    "ms": 24073,
+    "diagnostics": 0,
+    "heading": "5 / 7 · 恐惧",
+    "phase": "正在播放",
+    "theatrical": true
+  },
+  {
+    "ms": 28033,
+    "diagnostics": 0,
+    "heading": "5 / 7 · 恐惧",
+    "phase": "表情停留",
+    "theatrical": true
+  },
+  {
+    "ms": 29128,
+    "diagnostics": 0,
+    "heading": "6 / 7 · 惊讶",
+    "phase": "准备语音",
+    "theatrical": true
+  },
+  {
+    "ms": 29780,
+    "diagnostics": 0,
+    "heading": "6 / 7 · 惊讶",
+    "phase": "正在播放",
+    "theatrical": true
+  },
+  {
+    "ms": 33985,
+    "diagnostics": 0,
+    "heading": "6 / 7 · 惊讶",
+    "phase": "表情停留",
+    "theatrical": true
+  },
+  {
+    "ms": 34993,
+    "diagnostics": 0,
+    "heading": "7 / 7 · 厌恶",
+    "phase": "准备语音",
+    "theatrical": true
+  },
+  {
+    "ms": 35776,
+    "diagnostics": 0,
+    "heading": "7 / 7 · 厌恶",
+    "phase": "正在播放",
+    "theatrical": true
+  },
+  {
+    "ms": 39747,
+    "diagnostics": 0,
+    "heading": "7 / 7 · 厌恶",
+    "phase": "表情停留",
+    "theatrical": true
+  },
+  {
+    "ms": 40759,
+    "diagnostics": 0,
+    "heading": "演示完成",
+    "phase": "演示完成",
+    "theatrical": true
+  }
+]

@@ -1,0 +1,17 @@
+{
+  "selected": "colorado-2022",
+  "installed_on": "2026-10-31",
+  "source": "experiments/lam-musk-20261030/outputs/colorado-2022/avatar.zip",
+  "sha256": "5da20bf3ebde99f2cf2bbc1934674e1f41204bbb13970f0b7b3eadfc269ba3bb",
+  "bytes": 4108445,
+  "previous_sha256": "7916f3a23e327d321f49c18fa53fcfdcc4a59a0453e91bfcdf0a6a86560296f1",
+  "backup": "assets/characters/lam/backups/avatar-before-colorado-20261031-7916f3a23e32.zip",
+  "photo_credit": "U.S. Air Force / Trevor Cokley",
+  "photo_source": "https://commons.wikimedia.org/wiki/File:Elon_Musk_Colorado_2022_(cropped_2).jpg",
+  "model": "3DAIGC/LAM-20K",
+  "generation": "data2 official LAM creator; existing seven-clip harness export",
+  "morphs": 51,
+  "source_sha256": "324805f6c556a02bae9278b9f7982284390b07149a0d05feb08b66a0568f0ec7",
+  "pose_correction": "Per-clip median head pitch removed; camera at rig eye height",
+  "pose_report": "experiments/lam-musk-20261030/harness-seven-emotions-20261031/pose-level.json"
+}

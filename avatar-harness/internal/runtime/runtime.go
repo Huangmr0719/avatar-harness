@@ -294,7 +294,7 @@ func (r *Runtime) run(t *Turn, text string, media bool, inherited []map[string]a
 					}
 				}
 			}
-			answer := map[string]any{"role": "assistant", "content": textOut}
+			answer := map[string]any{"role": "assistant", "content": response.HistoryContent(textOut)}
 			commit = append(commit, answer)
 			r.mu.Lock()
 			if !t.Cancelled && r.current[t.SessionID] == t {

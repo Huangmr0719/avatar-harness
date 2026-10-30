@@ -1,0 +1,44 @@
+[
+  {
+    "id": "royal-2018",
+    "filename": "royal-2018.jpg",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/e/ed/Elon_Musk_Royal_Society.jpg",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Elon_Musk_Royal_Society.jpg",
+    "credit": "Debbie Rowe / The Royal Society",
+    "license": "CC BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "condition": "studio portrait; slight smile",
+    "bytes": 816378,
+    "sha256": "8aab8262f1da5ae98dec83f7ed677c1aed5164130ddf73d51d80ad922ee40b45",
+    "local_file": "experiments/lam-musk-20261030/inputs/royal-2018.jpg",
+    "modifications": "No local pixel changes; official LAM preprocessing will segment and align the image."
+  },
+  {
+    "id": "brazil-2022",
+    "filename": "brazil-2022.png",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/1/17/Elon_Musk_Brazil_2022.png",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Elon_Musk_Brazil_2022.png",
+    "credit": "ZACK/MCOM / Ministério das Comunicações, Brasil",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/",
+    "condition": "event portrait; blue backdrop",
+    "bytes": 18292846,
+    "sha256": "45a279273f58d90522f7e0a635b3b4980caa7a256db5c4f6e9a32c5cf01112f1",
+    "local_file": "experiments/lam-musk-20261030/inputs/brazil-2022.png",
+    "modifications": "No local pixel changes; official LAM preprocessing will segment and align the image."
+  },
+  {
+    "id": "colorado-2022",
+    "filename": "colorado-2022.jpg",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/7/74/Elon_Musk_Colorado_2022_%28cropped_2%29.jpg",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Elon_Musk_Colorado_2022_(cropped_2).jpg",
+    "credit": "U.S. Air Force / Trevor Cokley",
+    "license": "Public domain, US federal government work",
+    "license_url": "https://commons.wikimedia.org/wiki/Template:PD-USGov-Military-Air_Force",
+    "condition": "interview portrait; dark backdrop; upstream crop",
+    "bytes": 438541,
+    "sha256": "5cf5bee85d12ea085c70d15b5b31a5a1cc79f0a91664831bf6d745e74d0d9084",
+    "local_file": "experiments/lam-musk-20261030/inputs/colorado-2022.jpg",
+    "modifications": "No local pixel changes; official LAM preprocessing will segment and align the image."
+  }
+]

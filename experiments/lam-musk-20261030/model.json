@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/aigc3d/LAM",
+  "revision": "339573649dd93df4cba8093a964e85a80d1b61f3",
+  "model": "3DAIGC/LAM-20K",
+  "model_revision": "a710cd3c40c86ffe3fc572e895ed12f3ead47289",
+  "model_sha256": "f527e6e78fd9743aad95cb15b221b864d8b6d356c1d174c0ffad5d74b9a95925",
+  "patch": "services/patches/lam.patch"
+}

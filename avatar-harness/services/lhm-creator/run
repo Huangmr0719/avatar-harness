@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -eu
+service_root=${AVATAR_SERVICE_ROOT:-/data2/huangmr/code/avatar-harness}
+. "$service_root/services/env.sh"
+export PATH="$service_root/envs/lhm/bin:$PATH"
+export CUDA_VISIBLE_DEVICES=${AVATAR_GPU:-2}
+export GRADIO_SERVER_NAME=127.0.0.1
+export GRADIO_SERVER_PORT=${AVATAR_PORT:-18768}
+export HF_HUB_OFFLINE=1
+export HF_ENDPOINT=https://hf-mirror.com
+cd "$service_root/upstream/LHM-plusplus"
+exec python app.py --model_name LHMPP-700M-SMPLX-FREE --model_path "$service_root/models/lhmpp-700m-smplx-free" --neural

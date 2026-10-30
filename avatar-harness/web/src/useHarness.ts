@@ -3,7 +3,8 @@ import { AudioPlayer } from './audio'
 import { SpeechBatcher } from './lamSpeech'
 import { VoiceInput, deviceError } from './voice'
 import { RealtimeVoice } from './realtimeVoice'
-import { ExpressionControl, type ExpressionState } from './expressionControl'
+import { ExpressionControl, type ExpressionState, type ExpressionMode } from './expressionControl'
+import { EmotionDemo, demoRunning, type DemoState } from './emotionDemo'
 import { LatencyTracker, type LatencyState } from './latency'
 import { FaceRigControl, type FaceRigSnapshot } from './faceRig'
 import type { AudioSegment, Entry, HarnessEvent, MotionFrame, Renderer, Session, State } from './types'
@@ -13,9 +14,9 @@ export async function api<T>(path: string, options?: RequestInit): Promise<T> {
   if (!response.ok) { const error = await response.json().catch(() => ({})); throw new Error(typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}`) }
   return response.json()
 }
-export interface MediaHooks { prepare?: (buffer: AudioBuffer, pts: number) => Promise<{ elapsed_ms: number } | undefined>; frames: (frames: MotionFrame[], base: number) => void; audio: (segment: AudioSegment) => void; probe: () => { at_ms: number; audio_pts_ms: number; frame_pts_ms: number } | null; faceState?: () => FaceRigSnapshot | null; overrideFace?: (values: Record<string, number>) => void }
+export interface MediaHooks { clearMotion?: () => void; comparison?: (active: boolean) => void; prepare?: (buffer: AudioBuffer, pts: number) => Promise<{ elapsed_ms: number } | undefined>; frames: (frames: MotionFrame[], base: number) => void; audio: (segment: AudioSegment) => void; probe: () => { at_ms: number; audio_pts_ms: number; frame_pts_ms: number } | null; faceState?: () => FaceRigSnapshot | null; overrideFace?: (values: Record<string, number>) => void }
 
-export function useHarness() {
+export function useHarness(options: { diagnostics?: boolean } = {}) {
   const state = ref<State | null>(null), sessions = ref<Session[]>([]), selected = ref<Session | null>(null)
   const entries = ref<Entry[]>([]), connected = ref(false), busy = ref(false), playing = ref(false), error = ref('')
   const duration = ref<number | null>(null), activeTurn = ref<string | null>(null)
@@ -50,6 +51,10 @@ export function useHarness() {
   watch(mediaHooks, () => { resetFace(); if (facePanelOpen.value) refreshFace() })
   const expressionState = ref<ExpressionState>({ mode: 'auto', style: 'neutral', intensity: .7, source: 'default' })
   const expressionControl = new ExpressionControl(value => { expressionState.value = value })
+  const demo = ref<DemoState>({ phase: 'idle', index: -1 })
+  const demoActive = computed(() => demoRunning(demo.value))
+  let previousDemoMode: ExpressionMode = 'auto'
+  let demoFacePoll: ReturnType<typeof setInterval> | undefined
   const latency = ref<LatencyState>({})
   const latencyTracker = new LatencyTracker(value => { latency.value = value })
   let stream: EventSource | null = null, lastSeq = 0, selectionGeneration = 0, cameraGeneration = 0, micGeneration = 0
@@ -91,9 +96,51 @@ export function useHarness() {
     const timing = await mediaHooks.value?.prepare?.(buffer, pts)
     if (turn === activeTurn.value && timing) latencyTracker.record(turn, 'avatar_ms', timing.elapsed_ms)
   })
-  const speechBatcher = new SpeechBatcher(packet => { void audio.play(packet).catch(exc => notice(`本地语音驱动：${String(exc)}`, 'error')) })
+  const speechBatcher = new SpeechBatcher(packet => { void audio.play(packet).catch(exc => notice(`语音驱动：${String(exc)}`, 'error')) })
 
+  const emotionDemo = new EmotionDemo({
+    changed: value => { demo.value = value },
+    reset: () => { audio.stop(); mediaHooks.value?.clearMotion?.(); expressionControl.setMode('neutral') },
+    synthesize: async (step, signal) => {
+      moduleStates.value.tts = { state: 'running' }
+      try {
+        const result = await api<{ status: string; error?: string; output: import('./lamSpeech').AudioPacket }>('/v1/capabilities/tts/invoke', {
+          method: 'POST', signal, body: JSON.stringify({ input: { text: step.text, voice: character.value?.voice, expression_intent: { style: step.style, intensity: step.intensity, performance: 'theatrical' } } }),
+        })
+        if (result.status !== 'ok' || !result.output?.audio_base64) throw new Error(result.error || '演示没有收到语音')
+        if (!signal.aborted) moduleStates.value.tts = { state: 'configured' }
+        return result.output
+      } catch (exc) { if (!signal.aborted) moduleStates.value.tts = { state: 'error', message: String(exc) }; throw exc }
+    },
+    play: async (packet, step, signal) => {
+      expressionControl.setMode(step.style)
+      notice(`正在播放${step.label}：${step.text}`)
+      await audio.play({ ...packet, pts_ms: 0 })
+      await audio.waitUntilIdle(signal)
+    },
+    finish: () => {
+      clearInterval(demoFacePoll); demoFacePoll = undefined
+      audio.stop(); mediaHooks.value?.clearMotion?.(); mediaHooks.value?.comparison?.(false)
+      expressionControl.setMode(previousDemoMode)
+      if (moduleStates.value.tts?.state !== 'error') moduleStates.value.tts = { state: state.value?.providers.tts.configured ? 'configured' : 'deferred' }
+    },
+  })
+  function toggleEmotionDemo() {
+    if (demoActive.value) { void stop(); return }
+    if (renderer.value.kind !== 'lam' || renderState.value !== 'ready' || !state.value?.providers.tts.configured) return
+    previousDemoMode = expressionControl.state.mode
+    cutPlayback(); closeFacePanel(); resetFace(); latencyTracker.reset(); feedback.value = {}
+    liveVoice.close(); micGeneration++; void voice.stop(); micState.value = 'off'; voiceConnectionState.value = 'off'; voiceInputID = ''; speechPending = false; liveTranscript.value = ''
+    if (selected.value) void api(`/api/sessions/${selected.value.id}/stop`, { method: 'POST' }).catch(exc => notice(String(exc), 'error'))
+    void audio.unlock().catch(exc => notice(String(exc), 'error'))
+    mediaHooks.value?.comparison?.(true)
+    if (options.diagnostics) { refreshFace(); demoFacePoll = setInterval(refreshFace, 100) }
+    void emotionDemo.start()
+  }
+  function closeEmotionDemo() { emotionDemo.cancel(); demo.value = { phase: 'idle', index: -1 } }
   function cutPlayback() {
+    emotionDemo.cancel()
+    mediaHooks.value?.clearMotion?.()
     latencyTracker.cancel()
     expressionControl.cancel()
     if (activeTurn.value) blockedTurns.add(activeTurn.value)
@@ -126,6 +173,7 @@ export function useHarness() {
     if (!replay && turnId && blockedTurns.has(turnId)) return
     switch (event.type) {
       case 'turn.started':
+        if (!replay) emotionDemo.cancel()
         if (!replay && event.turn_id) expressionControl.begin(event.turn_id)
         if (!replay && event.turn_id) latencyTracker.begin(event.turn_id, data.source === 'voice' ? 'voice' : 'text')
         busy.value = !replay; activeTurn.value = event.turn_id; duration.value = null; feedback.value = {}; reported = false
@@ -172,8 +220,10 @@ export function useHarness() {
     catch (exc) { if (selected.value?.id === sid) notice(`形象服务：${String(exc)}`, 'error') }
   }
   function setRenderer(value: Renderer) {
+    if (value.kind === 'lam' && (value.driver ?? character.value?.renderer.driver) === 'remote') value = { ...value, driver: 'remote', driver_url: `/api/sessions/${selected.value?.id}/driver` }
     const previous = renderer.value
-    if (renderState.value !== 'error' && previous.kind === value.kind && previous.asset_url === value.asset_url && previous.url === value.url && previous.includes_audio === value.includes_audio) return
+    if (renderState.value !== 'error' && previous.kind === value.kind && previous.asset_url === value.asset_url && previous.url === value.url && previous.includes_audio === value.includes_audio && previous.driver === value.driver && previous.driver_url === value.driver_url) return
+    emotionDemo.cancel()
     closeFacePanel()
     renderer.value = { ...value }; renderState.value = value.kind === 'none' ? 'none' : 'loading'; renderError.value = ''
   }
@@ -258,6 +308,7 @@ export function useHarness() {
     catch (exc) { if ((exc as Error).name !== 'AbortError') notice(`语音识别失败：${String(exc)}`, 'error') }
   }
   async function toggleMic() {
+    emotionDemo.cancel()
     const generation = ++micGeneration
     if (micState.value === 'on' || micState.value === 'requesting') { liveVoice.close(); voiceInputID = ''; speechPending = false; liveTranscript.value = ''; await voice.stop(); micState.value = 'off'; voiceConnectionState.value = 'off'; return }
     micState.value = 'requesting'
@@ -278,6 +329,6 @@ export function useHarness() {
     }
     catch (exc) { liveVoice.close(); if (generation === micGeneration && (exc as Error).name !== 'AbortError') { micState.value = 'error'; notice(deviceError(exc, '麦克风'), 'error') } }
   }
-  onUnmounted(() => { clearInterval(facePoll); latencyTracker.cancel(); expressionControl.cancel(); speechBatcher.reset(); liveVoice.close(); stream?.close(); asrAbort?.abort(); audio.stop(); cameraGeneration++; micGeneration++; cameraStream.value?.getTracks().forEach(track => track.stop()); void voice.stop(); timers.forEach(timer => clearTimeout(timer)) })
-  return { facePanelOpen, faceSupported, faceLive, faceOverrides, toggleFacePanel, closeFacePanel, resetFace, setFaceChannel, previewBrow, latency, expressionState, setExpressionMode: (mode: string) => { resetFace(); expressionControl.setMode(mode) }, state, sessions, selected, entries, connected, busy, playing, error, duration, activeTurn, character, moduleStates, renderer, renderState, renderError, cameraStream, cameraState, micState, micLevel, liveTranscript, voiceConnectionState, feedback, mediaHooks, init, select, newSession, send, stop, clear, toggleCamera, toggleMic, resolveAvatar, setRenderer, setRenderStatus, notice }
+  onUnmounted(() => { emotionDemo.cancel(); clearInterval(demoFacePoll); clearInterval(facePoll); latencyTracker.cancel(); expressionControl.cancel(); speechBatcher.reset(); liveVoice.close(); stream?.close(); asrAbort?.abort(); audio.stop(); cameraGeneration++; micGeneration++; cameraStream.value?.getTracks().forEach(track => track.stop()); void voice.stop(); timers.forEach(timer => clearTimeout(timer)) })
+  return { demo, demoActive, toggleEmotionDemo, closeEmotionDemo, facePanelOpen, faceSupported, faceLive, faceOverrides, toggleFacePanel, closeFacePanel, resetFace, setFaceChannel, previewBrow, latency, expressionState, setExpressionMode: (mode: string) => { resetFace(); expressionControl.setMode(mode) }, state, sessions, selected, entries, connected, busy, playing, error, duration, activeTurn, character, moduleStates, renderer, renderState, renderError, cameraStream, cameraState, micState, micLevel, liveTranscript, voiceConnectionState, feedback, mediaHooks, init, select, newSession, send, stop, clear, toggleCamera, toggleMic, resolveAvatar, setRenderer, setRenderStatus, notice }
 }

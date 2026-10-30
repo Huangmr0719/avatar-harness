@@ -100,7 +100,9 @@ Go 语音流水线的 `Bus.NewTTSStream` 为每条合成工作通道管理本轮
 {"status":"ok","output":{"renderer":{"kind":"video","url":"https://你的服务/live-video","includes_audio":true}}}
 ```
 
-`lam` 在浏览器专用高斯渲染器中加载 LAM ZIP，并在本地 Worker 中推理 TTS 音频的面部参数（见 [Mac 本地 LAM](lam-local.md)）。此路径无需配置 Avatar FastAPI。
+`lam` 在浏览器专用高斯渲染器中加载 LAM ZIP。默认本地路径在 Worker 中推理 TTS 音频，无需 Avatar FastAPI（见 [Mac 本地 LAM](lam-local.md)）。配置 `renderer.driver: remote` 后改用 Avatar provider 的 GPU 服务，保留角色原有资产地址。
+
+远程 LAM 的同源入口为 `GET/POST /api/sessions/{id}/driver`。GET 向 provider 请求 `operation: health`，POST 请求 `operation: infer_window`，输入为 34133 个 16 kHz 单声道 `pcm_f32le` 采样的 `audio_base64`。后端返回 64 × 52 的帧优先 `weights`，通道顺序由健康检查的 `names` 给出；浏览器只使用新增音频对应的后缀帧。此模式不创建本地模型 Worker，也跳过普通 `animate` 分包调用。重置中止 HTTP 等待并丢弃过期结果；已经启动的 GPU 算子可能继续完成。部署见 [data2 模型服务](data2-models.md)。
 
 `scene` 在浏览器 Three.js 中加载 GLB/VRM，资源需允许 CORS；本地资产通过 CLI 注册，或浏览器直接读取 File 而不上传。`iframe` 服务需允许嵌入；当前只确认页面加载，完整专用客户端的数据 / 音频通道仍要适配。`video` 使用原生播放器，只接受浏览器支持的传输格式；不能把 `webrtc://` 或 RTMP 地址直接赋给 video.src，WebRTC 使用专用页面 / 信令适配器。
 
@@ -117,6 +119,8 @@ LAM 角色的最终回复固定为以下键顺序（需要工具时仍输出原�
 运行时流式解析 `speech` 字符串，处理跨包 Unicode、引号、换行和反斜杠转义，保留 `<speak/>` 提交门控。基础七类为 `neutral/happy/sad/angry/fearful/surprised/disgusted`，强度为 0–1；旧 `natural/focused/concerned` 继续兼容。元数据和 JSON 包装不送进 TTS，也不写成 assistant 正文。LAM 回合统一使用 `response_format: {"type":"json_object"}`，包括工具可用的首轮；原生 `tool_calls` 仍按原协议执行。只靠提示词可能产生正文但缺失情感元数据，不能把这种回答视为已执行表情。旧 provider 的纯 `<speak/>` 正文仍兼容。
 
 提交回答时下发 `pipeline.expression`：
+
+提示词仍要求情绪、强度在 speech 之前，以便语音开始前确定控制。合法 JSON 若改变键顺序，正文照常流式输出，后置元数据在解析完成时补发或更新表情；正常前缀不重复发送。模型侧历史保留原结构化回复，页面、会话事件和 TTS 只接收解码后的正文。
 
 ```json
 {"style":"sad","intensity":0.4,"duration_ms":8000,"source":"llm_structured"}
@@ -180,6 +184,8 @@ Go 将 TTS 的真实最终音频送给 `operation: animate`：
 - `stage: tts.first_audio`：`elapsed_ms` 为工作通道开始处理到收到该段首个音频包的时间。并发后段可能先完成，但仍会等前段输出；该数值不是 SSE 到达、浏览器起播或音画同步耗时。
 
 ## 桌面延迟统计
+
+日常界面仅显示整体响应时间与音画状态。以下分项、驱动读数和配置面板仅在 Vite 开发模式显示，不出现在默认 Go 用户页面；固定七类情绪演示位于独立的 `/demo/emotions` 页面。
 
 底栏显示本轮首次观测，不用预估值填充；没有数据时显示“—”，新轮或新会话清空，停止后保留已测值并拒绝旧轮补写。
 

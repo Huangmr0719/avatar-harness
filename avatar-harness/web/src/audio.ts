@@ -26,12 +26,30 @@ export class AudioPlayer {
   private onSchedule: (segment: AudioSegment) => void
   private onPlayback: (segment: AudioSegment) => void
   private observers = new Set<ReturnType<typeof setTimeout>>()
+  private idleWaiters = new Set<() => void>()
 
   private prepare?: (buffer: AudioBuffer, pts: number) => Promise<void>
 
   constructor(onPlaying: (playing: boolean) => void = () => {}, onSchedule: (segment: AudioSegment) => void = () => {}, onPlayback: (segment: AudioSegment) => void = () => {}, prepare?: (buffer: AudioBuffer, pts: number) => Promise<void>) { this.prepare = prepare; this.onPlaying = onPlaying; this.onSchedule = onSchedule; this.onPlayback = onPlayback }
 
-  private update() { this.onPlaying(this.pending > 0 || this.sources.size > 0) }
+  private update() {
+    const active = this.pending > 0 || this.sources.size > 0
+    this.onPlaying(active)
+    if (!active) for (const done of [...this.idleWaiters]) done()
+  }
+
+  // Scheduling is not completion: a comparison step awaits source.onended.
+  waitUntilIdle(signal: AbortSignal): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (signal.aborted) { reject(new DOMException('播放已取消', 'AbortError')); return }
+      if (!this.pending && !this.sources.size) { resolve(); return }
+      const clean = () => { this.idleWaiters.delete(done); signal.removeEventListener('abort', abort) }
+      const done = () => { clean(); resolve() }
+      const abort = () => { clean(); reject(new DOMException('播放已取消', 'AbortError')) }
+      this.idleWaiters.add(done)
+      signal.addEventListener('abort', abort, { once: true })
+    })
+  }
 
   async unlock() {
     this.context ??= new AudioContext()

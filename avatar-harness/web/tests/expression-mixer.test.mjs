@@ -1,8 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { ARKIT_NAMES, arkitFrame } from '../src/arkit.ts'
-import { applyBlink, ExpressionMixer } from '../src/expressionMixer.ts'
+import { applyBlink, exaggerateExpression, ExpressionMixer } from '../src/expressionMixer.ts'
 import { BASIC_EMOTIONS } from '../src/expressionControl.ts'
+import { ExpressionControl } from '../src/expressionControl.ts'
 
 test('official LAM channel order maps jaw and eyes without position ambiguity', () => {
   assert.equal(ARKIT_NAMES.length,52)
@@ -75,4 +76,86 @@ test('a full blink closes raised lids while preserving the rest of the expressio
   assert.equal(blink.eyeWideLeft,0);assert.equal(blink.eyeWideRight,0)
   assert.equal(blink.eyeBlinkLeft,1);assert.equal(blink.eyeBlinkRight,1)
   assert.equal(blink.browInnerUp,face.browInnerUp)
+})
+
+test('moderate emotions engage both brows and eyes before speech arrives',()=>{
+  const channels={happy:['browOuterUpLeft','eyeSquintLeft'],sad:['browInnerUp','eyeSquintLeft'],angry:['browDownLeft','eyeSquintLeft'],fearful:['browInnerUp','eyeWideLeft'],surprised:['browOuterUpLeft','eyeWideLeft'],disgusted:['browDownLeft','eyeSquintLeft']}
+  for(const [style,[brow,eye]] of Object.entries(channels)){
+    const mixer=new ExpressionMixer();mixer.set(style,.6)
+    const frame=mixer.sample(0)
+    assert.ok(frame[brow]>.5,`${style} brow is too faint: ${frame[brow]}`)
+    assert.ok(frame[eye]>.25,`${style} eyes are too faint: ${frame[eye]}`)
+    assert.equal(frame.jawOpen,0)
+  }
+})
+
+test('LLM emotion changes render upper-face motion without waiting for audio',()=>{
+  const mixer=new ExpressionMixer()
+  const control=new ExpressionControl(state=>mixer.set(state.style,state.intensity))
+  control.begin('llm-turn')
+  assert.equal(control.apply('llm-turn',{style:'surprised',intensity:.65}),true)
+  const surprise=mixer.sample(0)
+  assert.ok(surprise.browInnerUp>.7&&surprise.eyeWideLeft>.7)
+  assert.equal(control.apply('old-turn',{style:'happy',intensity:1}),false)
+  control.begin('next-turn')
+  control.apply('next-turn',{style:'angry',intensity:.7})
+  const angry=mixer.sample(1500,{jawOpen:.52,mouthClose:.16,mouthFunnel:.24})
+  assert.ok(angry.browDownLeft>.8&&angry.eyeSquintLeft>.6)
+  assert.ok(angry.eyeWideLeft<.001&&angry.browOuterUpLeft<.001)
+  assert.equal(angry.jawOpen,.52);assert.equal(angry.mouthClose,.16);assert.equal(angry.mouthFunnel,.24)
+  control.cancel()
+  const neutral=mixer.sample(3000)
+  assert.ok(neutral.browDownLeft<.001&&neutral.eyeSquintLeft<.001)
+})
+
+test('expressive intensity stays monotonic and zero releases affect even with PAD',()=>{
+  let previous=0
+  for(const intensity of [0,.1,.3,.6,.85,1]){
+    const mixer=new ExpressionMixer();mixer.set('surprised',intensity)
+    const face=mixer.sample(0)
+    assert.ok(face.eyeWideLeft>=previous&&face.eyeWideLeft<=1)
+    previous=face.eyeWideLeft
+  }
+  for(const style of [...BASIC_EMOTIONS,'natural']){
+    const mixer=new ExpressionMixer();mixer.set(style,0,{pleasure:1,arousal:1})
+    assert.ok(Object.values(mixer.sample(0)).every(value=>value===0),style)
+  }
+})
+
+test('comparison mode isolates requested upper-face affect while retaining phonetic motion',()=>{
+  const mixer=new ExpressionMixer();mixer.set('neutral',1)
+  const audio={jawOpen:.5,mouthClose:.2,browInnerUp:.8,eyeSquintLeft:.9,mouthSmileLeft:.9}
+  mixer.sample(0,audio,1)
+  const neutral=mixer.sample(2000,audio,1,{speechAffect:false})
+  assert.ok(neutral.browInnerUp<.001&&neutral.eyeSquintLeft<.001&&neutral.mouthSmileLeft<.001)
+  assert.equal(neutral.jawOpen,.5);assert.equal(neutral.mouthClose,.2)
+  mixer.set('surprised',1)
+  const surprise=mixer.sample(4000,audio,1,{speechAffect:false})
+  assert.ok(surprise.browInnerUp>.99&&surprise.eyeWideLeft>.99)
+  assert.equal(surprise.jawOpen,.5)
+})
+
+test('theatrical rendering extends facial affect while retaining speech and neutral baseline',()=>{
+  for(const style of BASIC_EMOTIONS){
+    const mixer=new ExpressionMixer();mixer.set(style,1)
+    const face=mixer.sample(0,{jawOpen:.65,mouthClose:.2,mouthFunnel:.3,mouthPucker:.15},0,{speechAffect:false})
+    const before={...face}
+    exaggerateExpression(face,style)
+    for(const key of ['jawOpen','mouthClose','mouthFunnel','mouthPucker','eyeLookDownLeft','eyeBlinkLeft'])assert.equal(face[key],before[key])
+    assert.ok(Object.values(face).every(value=>Number.isFinite(value)&&value>=0&&value<=1.65))
+    if(style==='neutral')assert.deepEqual(face,before)
+    if(style==='happy')assert.ok(face.mouthSmileLeft>1&&face.cheekSquintLeft>1)
+    if(style==='angry')assert.ok(face.browDownLeft>1.5)
+    if(style==='surprised')assert.ok(face.browOuterUpLeft>1.5&&face.eyeWideLeft>1)
+    assert.ok(Object.values(before).every(value=>value<=1))
+  }
+})
+
+test('theatrical eye opening never defeats a full blink',()=>{
+  const mixer=new ExpressionMixer();mixer.set('surprised',1)
+  const face=exaggerateExpression(applyBlink(mixer.sample(0),1),'surprised')
+  assert.equal(face.eyeBlinkLeft,1);assert.equal(face.eyeBlinkRight,1)
+  assert.equal(face.eyeWideLeft,0);assert.equal(face.eyeWideRight,0)
+  assert.equal(face.eyeSquintLeft,0);assert.equal(face.eyeSquintRight,0)
+  assert.ok(face.browInnerUp>1)
 })

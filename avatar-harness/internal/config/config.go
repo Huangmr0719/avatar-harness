@@ -35,6 +35,7 @@ type Tool struct {
 }
 type Renderer struct {
 	Kind          string `json:"kind"`
+	Driver        string `json:"driver,omitempty"`
 	AssetURL      string `json:"asset_url,omitempty"`
 	URL           string `json:"url,omitempty"`
 	IncludesAudio bool   `json:"includes_audio,omitempty"`
@@ -114,6 +115,12 @@ func (c *Config) Validate() error {
 		seen[ch.ID] = true
 		if ch.Renderer.Kind == "" {
 			ch.Renderer.Kind = "none"
+		}
+		if ch.Renderer.Driver != "" && ch.Renderer.Driver != "local" && ch.Renderer.Driver != "remote" {
+			return fmt.Errorf("LAM driver 必须为 local 或 remote")
+		}
+		if ch.Renderer.Driver == "remote" && ch.Renderer.Kind != "lam" {
+			return fmt.Errorf("远程 driver 只用于 LAM 角色")
 		}
 		switch ch.Renderer.Kind {
 		case "none", "scene", "lam", "iframe", "video":

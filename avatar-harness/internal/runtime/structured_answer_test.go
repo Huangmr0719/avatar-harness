@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -49,6 +50,30 @@ func TestStructuredAnswerSevenBasicEmotions(t *testing.T) {
 		if !strings.Contains(expressionPrompt, style) {
 			t.Fatal("emotion missing from LLM contract", style)
 		}
+	}
+}
+
+func TestStructuredAnswerLateEmotionDoesNotBlockSpeechOrDisappear(t *testing.T) {
+	p := StructuredAnswer{Enabled: true}
+	text, expression, err := p.Feed(`{"speech":"<speak/>我理解你的难过。`, false)
+	if err != nil || expression != nil || text != "<speak/>我理解你的难过。" {
+		t.Fatal("speech was delayed by trailing metadata", text, expression, err)
+	}
+	text, expression, err = p.Feed(`","emotion":"sad","intensity":0.75}`, true)
+	if err != nil || text != "" || expression == nil || expression.Style != "sad" || expression.Intensity != .75 {
+		t.Fatal("late emotion disappeared", text, expression, err)
+	}
+}
+
+func TestStructuredAnswerTrailingIntensityUpdatesEarlyDefault(t *testing.T) {
+	p := StructuredAnswer{Enabled: true}
+	text, expression, err := p.Feed(`{"emotion":"surprised","speech":"<speak/>哇，太意外了。`, false)
+	if err != nil || text != "<speak/>哇，太意外了。" || expression == nil || expression.Intensity != .7 {
+		t.Fatal("speech did not stream with early affect", text, expression, err)
+	}
+	_, expression, err = p.Feed(`","intensity":1}`, true)
+	if err != nil || expression == nil || expression.Style != "surprised" || expression.Intensity != 1 {
+		t.Fatal("trailing intensity was ignored", expression, err)
 	}
 }
 
@@ -178,6 +203,14 @@ func TestStructuredReplyStartsTTSBeforeJSONEndsWithoutExtraLLM(t *testing.T) {
 		if event.Type == "assistant.message" && strings.Contains(provider.String(event.Data["text"]), `"emotion"`) {
 			t.Fatal("JSON leaked to log", event.Data)
 		}
+	}
+	history := s.History(sid, 10)
+	var remembered struct {
+		Emotion string `json:"emotion"`
+		Speech  string `json:"speech"`
+	}
+	if err := json.Unmarshal([]byte(provider.String(history[len(history)-1]["content"])), &remembered); err != nil || remembered.Emotion != "happy" || remembered.Speech != "<speak/>太棒了，恭喜你顺利通过。" {
+		t.Fatal("LLM history lost the structured response contract", history, err)
 	}
 }
 

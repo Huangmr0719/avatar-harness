@@ -227,6 +227,10 @@ func TestQwenAudioTTSCancelClosesActiveTask(t *testing.T) {
 
 func TestSpeechInstructionCoversSevenEmotionsAndIntensity(t *testing.T) {
 	seen := map[string]bool{}
+	neutral := speechInstruction(map[string]any{"expression_intent": map[string]any{"style": "neutral", "intensity": 1}})
+	if !strings.Contains(neutral, "中性平稳") || strings.Contains(neutral, "表现强烈") {
+		t.Fatal("neutral comparison was made emotional by maximum intensity", neutral)
+	}
 	for _, style := range []string{"neutral", "happy", "sad", "angry", "fearful", "surprised", "disgusted"} {
 		instruction := speechInstruction(map[string]any{"expression_intent": map[string]any{"style": style, "intensity": .7}})
 		if seen[instruction] {
@@ -240,5 +244,28 @@ func TestSpeechInstructionCoversSevenEmotionsAndIntensity(t *testing.T) {
 		if err != nil || intensity == 0 && strings.Contains(instruction, "愤怒") || intensity == .2 && !strings.Contains(instruction, "轻微") || intensity == 1 && !strings.Contains(instruction, "明显") {
 			t.Fatal(intensity, instruction, err)
 		}
+	}
+	for _, sample := range []struct {
+		intensity float64
+		degree    string
+	}{{.7, "表现明显"}, {.9, "表现强烈"}} {
+		instruction := speechInstruction(map[string]any{"expression_intent": map[string]any{"style": "happy", "intensity": sample.intensity}})
+		if !strings.Contains(instruction, sample.degree) || strings.Contains(instruction, "克制") {
+			t.Fatal("expressive affect was damped in TTS", instruction)
+		}
+	}
+}
+
+func TestTheatricalSpeechIsExplicitAndKeepsNeutralBaseline(t *testing.T) {
+	for _, style := range []string{"happy", "sad", "angry", "fearful", "surprised", "disgusted"} {
+		normal := speechInstruction(map[string]any{"expression_intent": map[string]any{"style": style, "intensity": 1}})
+		acting := speechInstruction(map[string]any{"expression_intent": map[string]any{"style": style, "intensity": 1, "performance": "theatrical"}})
+		if strings.Contains(normal, "戏剧化") || !strings.Contains(acting, "戏剧化、夸张") || !strings.Contains(acting, "严格照原文") {
+			t.Fatal(style, normal, acting)
+		}
+	}
+	neutral := speechInstruction(map[string]any{"expression_intent": map[string]any{"style": "neutral", "intensity": 1, "performance": "theatrical"}})
+	if strings.Contains(neutral, "戏剧化") || !strings.Contains(neutral, "中性平稳") {
+		t.Fatal("neutral baseline was exaggerated", neutral)
 	}
 }

@@ -1,0 +1,87 @@
+--- a/app.py
++++ b/app.py
+@@ -502,7 +502,7 @@
+         )
+ 
+         demo.queue()
+-        demo.launch(server_name="0.0.0.0")
++        demo.launch(server_name="127.0.0.1", share=False)
+ 
+ 
+ def prior_model_check(save_dir: str = "./pretrained_models") -> None:
+@@ -546,6 +546,7 @@
+         help="Model name",
+     )
+     parser.add_argument("--debug", action="store_true", help="Debug mode")
++    parser.add_argument("--model_path", type=str, default=None)
+     render_mode = parser.add_mutually_exclusive_group()
+     render_mode.add_argument(
+         "--neural",
+@@ -574,7 +575,7 @@
+ 
+     # Get model path from AutoModelQuery (downloads from HuggingFace/ModelScope if needed)
+     auto_query = AutoModelQuery(save_dir="./pretrained_models")
+-    model_path: str = auto_query.query(model_name)
++    model_path: str = args.model_path or auto_query.query(model_name)
+     model_config: str = MODEL_CONFIG[model_name]
+     model_cards: Dict[str, Dict[str, Any]] = {
+         model_name: {
+--- a/core/models/transformer_block/transformer_dit.py
++++ b/core/models/transformer_block/transformer_dit.py
+@@ -37,7 +37,22 @@
+ from diffusers.utils.torch_utils import maybe_allow_in_graph
+ from einops import rearrange, repeat
+ from torch import Tensor
+-from torch.nn.attention import SDPBackend, sdpa_kernel
++try:
++    from torch.nn.attention import SDPBackend, sdpa_kernel
++except ImportError:  # PyTorch 2.2 has the same CUDA SDPA kernels under backends.
++    from contextlib import contextmanager
++    SDPBackend = torch.backends.cuda.SDPBackend
++
++    @contextmanager
++    def sdpa_kernel(backends):
++        enabled = set(backends if isinstance(backends, (list, tuple)) else [backends])
++        with torch.backends.cuda.sdp_kernel(
++            enable_flash=SDPBackend.FLASH_ATTENTION in enabled,
++            enable_math=SDPBackend.MATH in enabled,
++            enable_mem_efficient=SDPBackend.EFFICIENT_ATTENTION in enabled,
++        ):
++            yield
++
+ 
+ from core.models.vggt.layers.rope import RotaryPositionEmbedding2D
+ 
+--- a/core/models/encoders/dinov2_fusion_wrapper.py
++++ b/core/models/encoders/dinov2_fusion_wrapper.py
+@@ -164,7 +164,7 @@
+ 
+     @staticmethod
+     def _build_dinov2(
+-        model_name: str, modulation_dim: int = None, pretrained: bool = True
++        model_name: str, modulation_dim: int = None, pretrained: bool = False
+     ):
+         from importlib import import_module
+ 
+--- a/core/models/encoders/dinov2_wrapper.py
++++ b/core/models/encoders/dinov2_wrapper.py
+@@ -59,7 +59,7 @@
+ 
+     @staticmethod
+     def _build_dinov2(
+-        model_name: str, modulation_dim: int = None, pretrained: bool = True
++        model_name: str, modulation_dim: int = None, pretrained: bool = False
+     ):
+         from importlib import import_module
+ 
+--- a/core/models/rendering/skinnings/smplx_voxel_skinning.py
++++ b/core/models/rendering/skinnings/smplx_voxel_skinning.py
+@@ -132,7 +132,7 @@
+             torch.Tensor: Per-vertex normals of shape [N, 3], normalized to unit length.
+         """
+ 
+-        faces = torch.from_numpy(faces).long().to(verts.device)
++        faces = torch.from_numpy(faces.astype(np.int64, copy=False)).long().to(verts.device)
+         i0, i1, i2 = faces[:, 0], faces[:, 1], faces[:, 2]
+         v0, v1, v2 = verts[i0], verts[i1], verts[i2]
+ 

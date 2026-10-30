@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -eu
+exec ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=3 \
+  -L 127.0.0.1:18766:127.0.0.1:18766 \
+  -L 127.0.0.1:18767:127.0.0.1:18767 \
+  -L 127.0.0.1:18768:127.0.0.1:18768 data2

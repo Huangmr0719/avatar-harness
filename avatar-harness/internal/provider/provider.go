@@ -265,6 +265,14 @@ func (b *Bus) post(ctx context.Context, p config.Provider, path string, body any
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream, application/x-ndjson")
+	// This operation is a pure function of its audio window. Let Transport
+	// safely replay it when a reused keep-alive connection closes mid-request.
+	// TTS, LLM and arbitrary tools must retain their non-replayable semantics.
+	if invocation, ok := body.(Request); ok && invocation.Capability == "avatar" && invocation.Input["operation"] == "infer_window" {
+		if id := String(invocation.Context["request_id"]); id != "" {
+			req.Header.Set("Idempotency-Key", id)
+		}
+	}
 	if p.APIKeyEnv != "" {
 		key := os.Getenv(p.APIKeyEnv)
 		if key == "" {

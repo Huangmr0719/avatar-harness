@@ -1,10 +1,13 @@
 import type { MotionFrame } from './types'
 import { speechEnergyCurve } from './speechEnergy.ts'
+import { ARKIT_NAMES } from './arkit.ts'
 
 // A rolling second of real PCM supplies the model's fixed input. Only the newly
 // received suffix is emitted, so context is never replayed as new motion.
 export class LamSpeech {
-  private worker = new Worker(new URL('./lam.worker.ts', import.meta.url), { type: 'module' })
+  private worker?: Worker
+  private remoteRequests = new Set<AbortController>()
+  private loadController = new AbortController()
   private sequence = 0
   private requests = new Map<number, { resolve: (data: any) => void; reject: (error: Error) => void }>()
   private context = new Float32Array(16000)
@@ -13,7 +16,17 @@ export class LamSpeech {
   ready: Promise<void>
   lastInferenceMS = 0
   backend = ''
-  constructor() {
+  private remoteURL?: string
+  constructor(remoteURL?: string) {
+    this.remoteURL = remoteURL
+    if (remoteURL) {
+      this.ready = this.remote({}, true).then(data => {
+        if (data.input_samples !== 34133 || data.sample_rate !== 16000 || !Array.isArray(data.names) || data.names.join(',') !== ARKIT_NAMES.join(',')) throw new Error('远程 LAM 驱动格式不匹配')
+        this.names = data.names; this.context = new Float32Array(data.input_samples); this.backend = data.backend
+      })
+      return
+    }
+    this.worker = new Worker(new URL('./lam.worker.ts', import.meta.url), { type: 'module' })
     this.worker.onmessage = ({ data }) => {
       const request = this.requests.get(data.id)
       this.requests.delete(data.id)
@@ -24,8 +37,29 @@ export class LamSpeech {
     this.ready = this.request({ type: 'load' }).then(data => { this.names = data.names; this.backend = data.backend })
   }
   private request(data: Record<string, unknown>, transfer: Transferable[] = []): Promise<any> {
+    if (this.remoteURL) return this.remote(data)
     const id = ++this.sequence
-    return new Promise((resolve, reject) => { this.requests.set(id, { resolve, reject }); this.worker.postMessage({ ...data, id }, transfer) })
+    return new Promise((resolve, reject) => { this.requests.set(id, { resolve, reject }); this.worker!.postMessage({ ...data, id }, transfer) })
+  }
+  private async remote(data: Record<string, unknown>, load = false): Promise<any> {
+    const controller = load ? this.loadController : new AbortController()
+    if (!load) this.remoteRequests.add(controller)
+    const timer = setTimeout(() => controller.abort(), 10000)
+    try {
+      let body: string | undefined
+      if (!load) {
+        const bytes = new Uint8Array((data.audio as Float32Array).buffer)
+        let encoded = ''
+        for (let offset = 0; offset < bytes.length; offset += 8192) encoded += String.fromCharCode(...bytes.subarray(offset, offset + 8192))
+        body = JSON.stringify({ audio_base64: btoa(encoded) })
+      }
+      const response = await fetch(this.remoteURL!, { method: load ? 'GET' : 'POST', headers: body ? { 'Content-Type': 'application/json' } : undefined, body, signal: controller.signal })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.detail || `远程语音驱动 HTTP ${response.status}`)
+      if (load) return result
+      if (!Array.isArray(result.weights) || result.weights.length !== 64 * 52 || result.weights.some((v: unknown) => typeof v !== 'number' || !Number.isFinite(v))) throw new Error('远程模型返回了无效动作')
+      return { ...result, weights: Float32Array.from(result.weights) }
+    } finally { clearTimeout(timer); this.remoteRequests.delete(controller) }
   }
   async prepare(buffer: AudioBuffer, pts: number): Promise<MotionFrame[]> {
     const generation = this.generation
@@ -46,13 +80,15 @@ export class LamSpeech {
     for (let offset = 0; offset < count; offset += 8000) {
       const part = samples.subarray(offset, Math.min(count, offset + 8000))
       this.context.copyWithin(0, part.length)
-      this.context.set(part, 16000 - part.length)
+      this.context.set(part, this.context.length - part.length)
       const audio = this.context.slice()
-      const result = await this.request({ type: 'infer', audio }, [audio.buffer])
+      let result
+      try { result = await this.request({ type: 'infer', audio }, [audio.buffer]) }
+      catch (error) { if (generation !== this.generation) return []; throw error }
       if (generation !== this.generation) return []
       this.lastInferenceMS = result.elapsed_ms
       const total = result.weights.length / 52, duration = part.length / 16
-      const n = Math.max(1, Math.round(duration * total / 1000))
+      const n = Math.max(1, Math.round(duration * total / (this.context.length / 16)))
       const energy = speechEnergyCurve(part, n, this.context)
       for (let i = 0; i < n; i++) {
         const index = Math.max(0, total - n + i)
@@ -63,9 +99,9 @@ export class LamSpeech {
     }
     return frames
   }
-  reset() { this.generation++; this.context.fill(0) }
+  reset() { this.generation++; this.context.fill(0); this.remoteRequests.forEach(controller => controller.abort()); this.remoteRequests.clear() }
   private fail(error: Error) { for (const request of this.requests.values()) request.reject(error); this.requests.clear() }
-  dispose() { this.reset(); this.fail(new Error('语音驱动已关闭')); this.worker.terminate() }
+  dispose() { this.reset(); this.loadController.abort(); this.fail(new Error('语音驱动已关闭')); this.worker?.terminate() }
 }
 
 export type AudioPacket = { audio_base64: string; format?: string; sample_rate?: number; channels?: number; pts_ms?: number }

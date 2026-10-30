@@ -1,0 +1,107 @@
+{
+  "input": "web/public/models/lam/avatar.zip",
+  "output": "web/public/models/lam/avatar.pending.zip",
+  "unchanged_geometry": true,
+  "before": [
+    {
+      "name": "yumi_h5_a3_idle",
+      "median_pitch_deg": 4.776620616714062,
+      "min_pitch_deg": 2.943954909500553,
+      "max_pitch_deg": 6.404483790526807,
+      "mean_eye_y": 1.682083416181465
+    },
+    {
+      "name": "yumi_h5_a3_speak_1",
+      "median_pitch_deg": 5.803818769579774,
+      "min_pitch_deg": 3.7809336824166233,
+      "max_pitch_deg": 7.746011952717806,
+      "mean_eye_y": 1.6835412366665903
+    },
+    {
+      "name": "yumi_h5_a3_speak_2",
+      "median_pitch_deg": 4.675827722602678,
+      "min_pitch_deg": 3.3112219381789876,
+      "max_pitch_deg": 6.661340012766227,
+      "mean_eye_y": 1.6824211450188071
+    },
+    {
+      "name": "yumi_h5_a3_speak_3",
+      "median_pitch_deg": 3.998937071494508,
+      "min_pitch_deg": 3.1228589135238067,
+      "max_pitch_deg": 5.189409776564408,
+      "mean_eye_y": 1.6815955293125953
+    },
+    {
+      "name": "yumi_h5_a3_speak_4",
+      "median_pitch_deg": 5.263310792386505,
+      "min_pitch_deg": 3.6882685939808346,
+      "max_pitch_deg": 7.777213990074714,
+      "mean_eye_y": 1.683769569666504
+    },
+    {
+      "name": "yumi_h5_a3_speak",
+      "median_pitch_deg": 3.644113053804224,
+      "min_pitch_deg": 0.4621191634186344,
+      "max_pitch_deg": 5.944494574602528,
+      "mean_eye_y": 1.6810503849006464
+    },
+    {
+      "name": "yumi_h5_a3_speak_end",
+      "median_pitch_deg": 4.776620616714062,
+      "min_pitch_deg": 2.943954909500553,
+      "max_pitch_deg": 6.404483790526807,
+      "mean_eye_y": 1.682083416181465
+    }
+  ],
+  "after": [
+    {
+      "name": "yumi_h5_a3_idle",
+      "median_pitch_deg": 0.00008356017509571723,
+      "min_pitch_deg": -1.8326232512852478,
+      "max_pitch_deg": 1.6281484971613456,
+      "mean_eye_y": 1.6754270218550051
+    },
+    {
+      "name": "yumi_h5_a3_speak_1",
+      "median_pitch_deg": 0.00042467635909031816,
+      "min_pitch_deg": -2.022623238760273,
+      "max_pitch_deg": 1.9422330794625493,
+      "mean_eye_y": 1.6755133544488645
+    },
+    {
+      "name": "yumi_h5_a3_speak_2",
+      "median_pitch_deg": 0.00041920227327207584,
+      "min_pitch_deg": -1.3638266997334116,
+      "max_pitch_deg": 1.985991620431923,
+      "mean_eye_y": 1.6759282429468387
+    },
+    {
+      "name": "yumi_h5_a3_speak_3",
+      "median_pitch_deg": 0.00005836376355499516,
+      "min_pitch_deg": -0.8755952691024748,
+      "max_pitch_deg": 1.1905024323472762,
+      "mean_eye_y": 1.6760101943682901
+    },
+    {
+      "name": "yumi_h5_a3_speak_4",
+      "median_pitch_deg": 0.00039364977788513276,
+      "min_pitch_deg": -1.572694753191943,
+      "max_pitch_deg": 2.514012130956758,
+      "mean_eye_y": 1.6764836871137538
+    },
+    {
+      "name": "yumi_h5_a3_speak",
+      "median_pitch_deg": 0.00008918336859372934,
+      "min_pitch_deg": -3.1819875645524904,
+      "max_pitch_deg": 2.3006894412681604,
+      "mean_eye_y": 1.6759299914699075
+    },
+    {
+      "name": "yumi_h5_a3_speak_end",
+      "median_pitch_deg": 0.00008356017509571723,
+      "min_pitch_deg": -1.8326232512852478,
+      "max_pitch_deg": 1.6281484971613456,
+      "mean_eye_y": 1.6754270218550051
+    }
+  ]
+}

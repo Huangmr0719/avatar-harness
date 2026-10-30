@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -eu
+service_root=${AVATAR_SERVICE_ROOT:-/data2/huangmr/code/avatar-harness}
+action=${1:-status}
+name=${2:-lam-driver}
+case "$name" in
+ lam-driver) port=18766; path=/health ;;
+ lam-creator) port=18767; path=/config ;;
+ lhm-creator) port=18768; path=/config ;;
+ *) echo 'Service must be lam-driver, lam-creator or lhm-creator' >&2; exit 2 ;;
+esac
+socket="$service_root/runtime/tmp/tmux.sock"
+case "$action" in
+ start)
+  if tmux -S "$socket" has-session -t "$name" 2>/dev/null; then echo "$name already running"; exit 0; fi
+  tmux -S "$socket" new-session -d -s "$name" "bash '$service_root/services/$name/run' > '$service_root/runtime/logs/$name.log' 2>&1"
+  ;;
+ stop) tmux -S "$socket" send-keys -t "$name" C-c ;;
+ status) curl --noproxy '*' -fsS --max-time 5 "http://127.0.0.1:$port$path" ;;
+ *) echo 'Usage: modelctl start|stop|status [service]' >&2; exit 2 ;;
+esac

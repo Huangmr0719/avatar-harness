@@ -1,0 +1,10 @@
+# Intermediate video samples; the comparison page uses frame-180.png.
+/outputs/*/frame-000.png
+/outputs/*/frame-090.png
+/outputs/*/frame-105.png
+/outputs/*/frame-210.png
+/outputs/*/frame-255.png
+# Earlier screenshots are superseded by the final leveled demonstration.
+/harness-seven-emotions-20261031/pose-*.png
+/harness-seven-emotions-20261031/speaking-*.png
+/harness-seven-emotions-20261031/evidence.json

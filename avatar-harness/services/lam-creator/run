@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -eu
+service_root=${AVATAR_SERVICE_ROOT:-/data2/huangmr/code/avatar-harness}
+. "$service_root/services/env.sh"
+export PATH="$service_root/envs/lam/bin:$PATH"
+export CUDA_VISIBLE_DEVICES=${AVATAR_GPU:-1}
+export GRADIO_SERVER_NAME=127.0.0.1
+export GRADIO_SERVER_PORT=${AVATAR_PORT:-18767}
+export HF_HUB_OFFLINE=1
+cd "$service_root/upstream/LAM"
+exec python "$service_root/services/lam-creator/launch.py" --blender_path "$service_root/services/lam-creator/blender-run"

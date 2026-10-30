@@ -399,7 +399,7 @@ func (s *Speech) dispatch() {
 			audio["pts_ms"] = pts
 			audio["duration_ms"] = duration
 			audio["mode"] = "audio"
-			if s.config.Providers["avatar"].Kind != "deferred" {
+			if s.config.Providers["avatar"].Kind != "deferred" && s.character.Renderer.Driver != "remote" {
 				s.emit("module.status", map[string]any{"module": "avatar", "state": "running"})
 				result := s.bus.Invoke(s.ctx, "avatar", map[string]any{"operation": "animate", "audio": audio, "character_id": s.character.ID, "asset_path": s.character.AssetPath, "expression_intent": map[string]any{"pad": s.character.PAD}}, s.metadata)
 				if result.Status == "ok" {

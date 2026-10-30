@@ -13,7 +13,7 @@ import (
 
 const expressionPrompt = `
 数字人回复使用紧凑 JSON，键顺序固定：{"emotion":"neutral","intensity":0.6,"speech":"<speak/>可播报正文"}。
-emotion 使用基础七类：neutral（中性）、happy（快乐）、sad（悲伤）、angry（愤怒）、fearful（恐惧）、surprised（惊讶）、disgusted（厌恶）。选择数字人回应时适宜表达的情感，结合对话内容与用户情绪；安慰时可低强度悲伤或温和中性，不要机械模仿用户，也不要无故对用户表达愤怒或厌恶。intensity 在 0 到 1 之间，日常对话适度；同一情感与强度同时用于脸部表情和语音语气。speech 必须以 <speak/> 开头，然后直接回答用户。不要代码围栏、解释 JSON 或额外字段，不在表情前输出思考过程。
+emotion 使用基础七类：neutral（中性）、happy（快乐）、sad（悲伤）、angry（愤怒）、fearful（恐惧）、surprised（惊讶）、disgusted（厌恶）。根据对话内容选择数字人回应时适宜表达的情感。祝贺、惊喜、安慰等情绪线索明确时，使用对应非中性情感，让眉眼和语气清楚体现；普通事实问答可用中性。安慰时用悲伤与共情，不机械模仿用户，也不无故对用户表达愤怒或厌恶。intensity 在 0 到 1 之间：一般非中性情感用 0.65–0.85，强烈情感用 0.9–1；用户要求轻微时用 0.2–0.4，中性用 0–0.2。同一情感与强度同时用于脸部表情和语音语气。speech 必须以 <speak/> 开头，然后直接回答用户。不要代码围栏、解释 JSON 或额外字段，不在表情前输出思考过程。
 用户明确要求展示某种表情时，必须在 emotion 中执行该表情，通常用 0.85–1 的演示强度；用户要求轻微时才降低强度。抬眉或惊讶用 surprised，皱眉或生气用 angry。只在 speech 里说“我正在皱眉”，而 emotion 仍为 neutral，不算执行。正文只简短回应，不逐项讲解自己做了什么动作。
 需要外部工具时直接输出原生 tool_calls，不输出 JSON 或前言；拿到工具结果后的最终回答再用上述 JSON。表情属于同一条回复，不需要单独调用工具。`
 
@@ -32,6 +32,7 @@ type StructuredAnswer struct {
 	buffer  string
 	started bool
 	ended   bool
+	control *Expression
 }
 
 func (s *StructuredAnswer) Feed(chunk string, final bool) (string, *Expression, error) {
@@ -67,6 +68,7 @@ func (s *StructuredAnswer) Feed(chunk string, final bool) (string, *Expression, 
 		}
 		s.started = true
 		expression = control
+		s.control = control
 		s.buffer = s.buffer[position:]
 	}
 	text, err := s.decodeSpeech(final)
@@ -75,13 +77,37 @@ func (s *StructuredAnswer) Feed(chunk string, final bool) (string, *Expression, 
 	}
 	if final {
 		var response struct {
-			Speech *string `json:"speech"`
+			Speech    *string  `json:"speech"`
+			Emotion   string   `json:"emotion"`
+			Intensity *float64 `json:"intensity"`
 		}
 		if err := json.Unmarshal([]byte(s.raw.String()), &response); err != nil || response.Speech == nil || !s.ended {
 			return "", nil, fmt.Errorf("数字人结构化回复不完整")
 		}
+		// Providers can return valid JSON in a different key order. Speech has
+		// already streamed; recover trailing affect without delaying TTS or
+		// emitting the normal prefix twice.
+		if validExpressionStyle(response.Emotion) {
+			intensity := .7
+			if response.Intensity != nil {
+				intensity = *response.Intensity
+			}
+			if !math.IsNaN(intensity) && !math.IsInf(intensity, 0) && intensity >= 0 && intensity <= 1 && (s.control == nil || s.control.Style != response.Emotion || s.control.Intensity != intensity) {
+				expression = &Expression{response.Emotion, intensity, 8000}
+				s.control = expression
+			}
+		}
 	}
 	return text, expression, nil
+}
+
+// Keep the model-facing history in the format it is asked to generate. UI and
+// TTS continue receiving only decoded speech, including for legacy providers.
+func (s *StructuredAnswer) HistoryContent(plain string) string {
+	if s.Enabled && s.mode == "json" {
+		return s.raw.String()
+	}
+	return plain
 }
 
 // Return the first character inside speech, after consuming complete metadata.

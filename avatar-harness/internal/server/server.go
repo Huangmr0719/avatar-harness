@@ -203,12 +203,26 @@ func (a *App) routes() {
 	mux.HandleFunc("GET /api/characters/{character}/asset", a.asset)
 	mux.HandleFunc("GET /api/characters/{character}/asset/avatar.zip", a.asset)
 	mux.HandleFunc("POST /api/sessions/{id}/avatar", a.avatar)
+	mux.HandleFunc("GET /api/sessions/{id}/driver", a.driver)
+	mux.HandleFunc("POST /api/sessions/{id}/driver", a.driver)
 	mux.HandleFunc("POST /oac/v1/chat/completions", a.oac)
 	mux.HandleFunc("GET /docs", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprint(w, `<!doctype html><meta charset="utf-8"><title>Avatar Harness API</title><style>body{max-width:900px;margin:60px auto;background:#101317;color:#e8edf2;font:16px/1.8 system-ui}code{color:#7ce3b2}a{color:#7ce3b2}</style><h1>Avatar Harness · Go</h1><p>外部 FastAPI 是 provider 服务端的一种接入协议，Harness 本身由 Go 运行。</p><p><code>GET /api/state</code> 配置与角色<br><code>POST /api/sessions</code> 创建会话<br><code>POST /api/sessions/{id}/turns</code> 文本输入<br><code>POST /api/sessions/{id}/audio</code> ASR 输入<br><code>GET /api/sessions/{id}/events</code> SSE 事件<br><code>POST /api/sessions/{id}/avatar</code> 获取展示描述<br><code>POST /v1/capabilities/{name}/invoke</code> 能力调用<br><code>POST /v1/capabilities/{name}/stream</code> NDJSON 流<br><code>POST /oac/v1/chat/completions</code> OpenAvatarChat 桥接</p><p>请求：<code>{"input":{},"context":{}}</code><br>返回：<code>{"status":"ok","output":{}}</code></p><a href="/v1/capabilities">已注册能力</a> · <a href="/">返回工作台</a>`)
 	})
 	assets, _ := fs.Sub(web.Files, "dist")
+	// A dedicated presentation page keeps the comparison script out of the
+	// normal conversation surface. Its frontend uses the same media runtime.
+	mux.HandleFunc("GET /demo/emotions", func(w http.ResponseWriter, r *http.Request) {
+		page, err := fs.ReadFile(assets, "index.html")
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache")
+		_, _ = w.Write(page)
+	})
 	mux.Handle("/", http.FileServer(http.FS(assets)))
 	a.Handler = mux
 }
@@ -341,7 +355,11 @@ func (a *App) avatar(w http.ResponseWriter, r *http.Request) {
 	}
 	if a.Config.Providers["avatar"].Kind != "deferred" {
 		a.Runtime.Store.Emit(session.ID, "", "module.status", map[string]any{"module": "avatar", "state": "running"})
-		result := a.Runtime.Bus.Invoke(r.Context(), "avatar", map[string]any{"operation": "describe", "character_id": character.ID}, map[string]any{"session_id": session.ID})
+		operation := "describe"
+		if renderer.Kind == "lam" && renderer.Driver == "remote" {
+			operation = "health"
+		}
+		result := a.Runtime.Bus.Invoke(r.Context(), "avatar", map[string]any{"operation": operation, "character_id": character.ID}, map[string]any{"session_id": session.ID})
 		if result.Status != "ok" {
 			a.Runtime.Store.Emit(session.ID, "", "module.status", map[string]any{"module": "avatar", "state": result.Status, "message": result.Error})
 			problem(w, 502, result.Error)
@@ -351,17 +369,19 @@ func (a *App) avatar(w http.ResponseWriter, r *http.Request) {
 		if nested, ok := value["renderer"].(map[string]any); ok {
 			value = nested
 		}
-		raw, _ := json.Marshal(value)
-		if err := json.Unmarshal(raw, &renderer); err != nil {
-			problem(w, 502, "无效的形象展示描述")
-			return
+		if operation == "describe" {
+			raw, _ := json.Marshal(value)
+			if err := json.Unmarshal(raw, &renderer); err != nil {
+				problem(w, 502, "无效的形象展示描述")
+				return
+			}
 		}
 		a.Runtime.Store.Emit(session.ID, "", "module.status", map[string]any{"module": "avatar", "state": "configured"})
 	}
 	switch renderer.Kind {
-	case "none", "scene", "iframe", "video":
+	case "none", "scene", "lam", "iframe", "video":
 	default:
-		problem(w, 502, "形象展示类型只支持 scene、iframe、video 或 none")
+		problem(w, 502, "形象展示类型只支持 lam、scene、iframe、video 或 none")
 		return
 	}
 	write(w, 200, map[string]any{"renderer": renderer, "character_id": character.ID})

@@ -33,28 +33,54 @@ func speechInstruction(input map[string]any) string {
 	delivery := "语气自然友好、平稳，像面对面聊天，不要播音腔或演讲腔。"
 	switch style {
 	case "happy":
-		delivery = "语气自然欣喜、带笑意，轻快地祝贺或分享喜悦，不要大笑、尖叫或夸张表演。"
+		delivery = "语气欣喜、笑意鲜明，轻快而热情地祝贺或分享喜悦，重音和音高起伏生动，字音清楚。"
 	case "sad":
 		delivery = "语气低落、柔和，有自然的悲伤与共情，语速稍缓、音调略低，保持清晰，不要夸张哭泣。"
 	case "angry":
-		delivery = "语气愤怒而克制，坚定有力、重音稍强，表达不满但不要吼叫、辱骂或失去清晰度。"
+		delivery = "语气愤怒，坚定有力，重音突出、停顿果断，清晰表达不满，保持字音清楚。"
 	case "fearful":
-		delivery = "语气担忧、紧张，略带犹疑和不安，保持可理解的自然语速，不要尖叫或夸张颤抖。"
+		delivery = "语气担忧、紧张，带清楚可辨的犹疑和不安，停连与气息体现紧张，保持字音清楚。"
 	case "surprised":
-		delivery = "语气惊讶、意外，开头音调略扬、重音明显，随后自然回落，不要整句高喊或过度表演。"
+		delivery = "语气惊讶、意外，开头音调明显上扬，关键词重音突出，短暂停顿后自然回落，表现出鲜明的惊喜或震惊。"
 	case "disgusted":
-		delivery = "语气带嫌恶和排斥，表达不适、语调略低且短促，保持克制，不要做恶心音效或攻击听者。"
+		delivery = "语气带清楚的嫌恶和排斥，语调偏低、短促，关键词加重，鲜明表达不适，字音清楚。"
 	case "concerned":
 		delivery = "语气温柔关切、耐心安抚，语速稍慢但不要拖长音，不要哭腔或过度悲伤。"
 	case "focused":
 		delivery = "语气认真平稳、清晰简洁，适度强调重点，像正常交谈，不要朗诵或演讲。"
 	}
-	degree := "情感表达适中、克制。"
+	degree := "情感表达自然可辨，音高、重音和节奏与情绪一致。"
 	if strength < .4 {
 		degree = "情感只需轻微流露。"
 	}
-	if strength > .8 {
-		degree = "情感可以明显一些，但保持自然克制。"
+	if strength >= .65 {
+		degree = "情感表现明显，充分体现对应情绪的音高起伏、重音与停连，保持面对面交谈的清晰度。"
+	}
+	if strength >= .85 {
+		degree = "情感表现强烈、明显且富有感染力，充分拉开音高、重音和节奏变化，保持字音清楚。"
+	}
+	if String(intent["performance"]) == "theatrical" && strength >= .85 {
+		switch style {
+		case "happy":
+			delivery = "非常兴奋、喜形于色，像演员热烈分享喜讯，笑意饱满、节奏轻快，音调和重音起伏大胆。"
+		case "sad":
+			delivery = "非常伤心，声线低沉而饱含哽咽，气息颤抖，停顿有分量，像演员表现难以掩饰的悲伤。"
+		case "angry":
+			delivery = "明显愤怒、情绪爆发，重音强烈、停顿果断，语气激昂而有冲击力，像演员当面表达强烈不满。"
+		case "fearful":
+			delivery = "非常害怕，声线紧绷、明显颤抖，呼吸急促，语句犹疑，像演员被突然吓到后的惊恐反应。"
+		case "surprised":
+			delivery = "极度惊讶、难以置信，开头音调大幅扬起，关键词重音突出，短暂停顿后带着惊叹继续，表演生动大胆。"
+		case "disgusted":
+			delivery = "嫌恶、排斥的情绪非常明显，声音短促，语调下压，关键词用力，像演员闻到刺鼻气味后的本能反应。"
+		}
+		degree = "采用戏剧化、夸张的情绪演绎，允许明显的笑意、哽咽、颤抖和气息变化。严格照原文说话，保持字音清楚。"
+	}
+	if style == "neutral" || style == "natural" || style == "" {
+		if String(intent["performance"]) == "theatrical" {
+			delivery = "语气中性、平稳，像平静地陈述一件事情。"
+		}
+		degree = "保持中性平稳，语速和音量均匀，不带明显情感倾向。"
 	}
 	return "请用普通话说话。" + delivery + degree
 }

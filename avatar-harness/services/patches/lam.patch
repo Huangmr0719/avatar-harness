@@ -1,0 +1,98 @@
+--- a/app_lam.py
++++ b/app_lam.py
+@@ -213,7 +213,7 @@
+         
+         base_vid = os.path.basename(video_params).split(".")[0]
+         flame_params_dir = os.path.join("./assets/sample_motion/export", base_vid, "flame_param")
+-        base_iid = os.path.basename(image_path).split('.')[0]
++        base_iid = 'avatar-' + os.path.basename(working_dir.name)
+         image_path = os.path.join("./assets/sample_input", base_iid, "images/00000_00.png")
+ 
+         dump_video_path = os.path.join(working_dir.name, "output.mp4")
+@@ -308,7 +308,9 @@
+                 import shutil
+                 import patoolib
+ 
+-                oac_dir = os.path.join('./output/open_avatar_chat', base_iid)
++                oac_parent = os.path.join(os.environ['AVATAR_SERVICE_ROOT'], 'outputs', 'lam')
++                os.makedirs(oac_parent, exist_ok=True)
++                oac_dir = os.path.join(oac_parent, base_iid)
+                 saved_head_path = lam.renderer.flame_model.save_shaped_mesh(shape_param.unsqueeze(0).cuda(), fd=oac_dir)
+                 res['cano_gs_lst'][0].save_ply(os.path.join(oac_dir, "offset.ply"), rgb2sh=False, offset2xyz=True)
+                 generate_glb(
+@@ -323,7 +325,7 @@
+                 )
+                 os.remove(saved_head_path)
+ 
+-                output_zip_path = os.path.join('./output/open_avatar_chat', base_iid + '.zip')
++                output_zip_path = os.path.join(oac_parent, base_iid + '.zip')
+                 if os.path.exists(output_zip_path):
+                     os.remove(output_zip_path)
+                 original_cwd = os.getcwd()
+@@ -339,9 +341,13 @@
+                     )
+                 finally:
+                     os.chdir(original_cwd)
++                import subprocess, sys
++                prepared_zip = output_zip_path.replace('.zip', '-harness.zip')
++                subprocess.run([sys.executable, os.path.join(os.environ['AVATAR_SERVICE_ROOT'], 'tools', 'prepare-lam-avatar.py'), output_zip_path, prepared_zip], check=True)
++                os.replace(prepared_zip, output_zip_path)
+                 shutil.rmtree(oac_dir)
+             except Exception as e:
+-                output_zip_path = f"Archive creation failed: {str(e)}"
++                raise gr.Error(f'Avatar export failed: {e}') from e
+ 
+         rgb = res["comp_rgb"].detach().cpu().numpy()  # [Nv, H, W, 3], 0-1
+         mask = res["comp_mask"].detach().cpu().numpy()  # [Nv, H, W, 3], 0-1
+@@ -362,7 +368,11 @@
+         dump_video_path_wa = dump_video_path.replace(".mp4", "_audio.mp4")
+         add_audio_to_video(dump_video_path, dump_video_path_wa, audio_path)
+ 
+-        return dump_image_path, dump_video_path_wa, output_zip_path if enable_oac_file else ''
++        if enable_oac_file:
++            import shutil
++            shutil.copy2(dump_image_path, output_zip_path.replace('.zip', '.png'))
++            shutil.copy2(dump_video_path_wa, output_zip_path.replace('.zip', '.mp4'))
++        return dump_image_path, dump_video_path_wa, output_zip_path if enable_oac_file else None
+ 
+     with gr.Blocks(analytics_enabled=False) as demo:
+ 
+@@ -454,15 +464,14 @@
+         with gr.Row():
+             with gr.Column(variant='panel', scale=1):
+                 enable_oac_file = gr.Checkbox(label="Export ZIP file for Chatting Avatar",
+-                                              value=False,
++                                              value=True,
+                                               visible=os.path.exists(cfg.blender_path))
+                 submit = gr.Button('Generate',
+                                    elem_id='lam_generate',
+                                    variant='primary')
+-                output_zip_textbox = gr.Textbox(
+-                    label="Export ZIP File Path",
++                output_zip_textbox = gr.File(
++                    label="Download harness-ready avatar ZIP",
+                     interactive=False,
+-                    placeholder="Export ZIP File Path ...",
+                     visible=os.path.exists(cfg.blender_path)
+                 )
+ 
+@@ -492,7 +501,7 @@
+         )
+ 
+         demo.queue()
+-        demo.launch()
++        demo.launch(server_name="127.0.0.1", share=False)
+ 
+ 
+ def _build_model(cfg):
+--- a/lam/models/encoders/dinov2_fusion_wrapper.py
++++ b/lam/models/encoders/dinov2_fusion_wrapper.py
+@@ -109,7 +109,7 @@
+             param.requires_grad = False
+ 
+     @staticmethod
+-    def _build_dinov2(model_name: str, modulation_dim: int = None, pretrained: bool = True):
++    def _build_dinov2(model_name: str, modulation_dim: int = None, pretrained: bool = False):
+         from importlib import import_module
+         dinov2_hub = import_module(".dinov2.hub.backbones", package=__package__)
+         model_fn = getattr(dinov2_hub, model_name)

@@ -62,6 +62,18 @@ test('audio keeps server order through asynchronous WAV decoding and remains sto
   assert.equal(states.at(-1), false)
 })
 
+test('demo completion waits for actual source end and its wait can be interrupted',async()=>{
+  const fixture=audioFixture(),player=new AudioPlayer(),controller=new AbortController()
+  await player.play(packet(2))
+  let complete=false
+  const done=player.waitUntilIdle(controller.signal).then(()=>{complete=true})
+  await Promise.resolve();assert.equal(complete,false)
+  fixture.sources[0].onended();await done;assert.equal(complete,true)
+  await player.play(packet(3))
+  const stop=new AbortController(),cancelled=player.waitUntilIdle(stop.signal)
+  stop.abort();await assert.rejects(cancelled,{name:'AbortError'});player.stop()
+})
+
 test('stop rejects audio still decoding without blocking a new turn', async () => {
   const fixture = audioFixture()
   const states = []

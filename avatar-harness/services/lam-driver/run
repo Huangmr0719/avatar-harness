@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -eu
+service_root=${AVATAR_SERVICE_ROOT:-/data2/huangmr/code/avatar-harness}
+export AVATAR_SERVICE_ROOT="$service_root"
+export XDG_CACHE_HOME="$service_root/runtime/cache"
+export HF_HOME="$service_root/runtime/cache/huggingface"
+export TORCH_HOME="$service_root/runtime/cache/torch"
+export TORCH_EXTENSIONS_DIR="$service_root/runtime/cache/torch-extensions"
+export TMPDIR="$service_root/runtime/tmp"
+export CUDA_VISIBLE_DEVICES=${AVATAR_GPU:-0}
+export OMP_NUM_THREADS=2
+export HF_HUB_OFFLINE=1
+cd "$service_root/services/lam-driver"
+exec /data2/huangmr/envs/au_gen/bin/python -m uvicorn app:app --host 127.0.0.1 --port "${AVATAR_PORT:-18766}" --workers 1

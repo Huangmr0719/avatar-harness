@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -eu
+service_root=${AVATAR_SERVICE_ROOT:-/data2/huangmr/code/avatar-harness}
+blender_root="$service_root/tools/blender-4.0.2-linux-x64"
+libc_root="$service_root/tools/glibc-2.35/lib/x86_64-linux-gnu"
+export BLENDER_USER_CONFIG="$service_root/runtime/cache/blender/config"
+export BLENDER_USER_SCRIPTS="$service_root/runtime/cache/blender/scripts"
+export BLENDER_SYSTEM_SCRIPTS="$blender_root/4.0/scripts"
+export BLENDER_SYSTEM_PYTHON="$blender_root/4.0/python"
+export BLENDER_SYSTEM_DATAFILES="$blender_root/4.0/datafiles"
+mkdir -p "$BLENDER_USER_CONFIG" "$BLENDER_USER_SCRIPTS"
+exec "$libc_root/ld-linux-x86-64.so.2" --library-path "$libc_root:$blender_root/lib:/usr/lib/x86_64-linux-gnu" "$blender_root/blender" "$@"

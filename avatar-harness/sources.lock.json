@@ -85,5 +85,34 @@
       "license_file": "integrations/licenses/LAM-WebRender-LICENSE",
       "integration": "Official 52-channel coordinate order in web/src/arkit.ts; complete weight vectors and smooth, project-authored expression poses. The speech clip is not used as an emotion-labelled asset."
     }
+  },
+  "data2_models": {
+    "root": "/data2/huangmr/code/avatar-harness",
+    "base_environment": "/data2/huangmr/envs/au_gen (read-only reuse)",
+    "LAM": {
+      "repository": "https://github.com/aigc3d/LAM",
+      "revision": "339573649dd93df4cba8093a964e85a80d1b61f3",
+      "model": "3DAIGC/LAM-20K",
+      "model_revision": "a710cd3c40c86ffe3fc572e895ed12f3ead47289",
+      "model_sha256": "f527e6e78fd9743aad95cb15b221b864d8b6d356c1d174c0ffad5d74b9a95925",
+      "patch": "services/patches/lam.patch"
+    },
+    "LAM_Audio2Expression": {
+      "repository": "https://github.com/aigc3d/LAM_Audio2Expression",
+      "revision": "02a703c3ea7d8e360eb43098eca85ee98a083529",
+      "model": "3DAIGC/LAM_audio2exp",
+      "model_revision": "0fe5f4dbb283ec7d9c01688681e6e4b6ac314858",
+      "streaming_checkpoint_sha256": "0877f419b1b7b6856479b743b71625ad478f97434404e91288f9f0d6d516b97a"
+    },
+    "LHM_plus_plus": {
+      "repository": "https://github.com/aigc3d/LHM-plusplus",
+      "revision": "906b5d9fb967ab42efb92f6fa55bf22cac86b653",
+      "model": "Damo_XR_Lab/LHMPP-700M-SMPLX-FREE",
+      "model_source": "ModelScope",
+      "integrity": "Per-file revision and SHA256 in server models/*/download-manifest.json",
+      "patch": "services/patches/lhm-plusplus.patch"
+    },
+    "license_boundary": "Preserve upstream code, weight and third-party asset licences separately; LAM/LHM LICENSE_WEIGHT includes non-commercial limits.",
+    "checks": "docs/data2-models.md"
   }
 }

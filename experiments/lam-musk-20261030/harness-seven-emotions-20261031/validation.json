@@ -1,0 +1,21 @@
+{
+  "selected": "colorado-2022",
+  "published_asset_sha256": "5da20bf3ebde99f2cf2bbc1934674e1f41204bbb13970f0b7b3eadfc269ba3bb",
+  "completed": true,
+  "duration_ms": 40759,
+  "played": [
+    "1 / 7 · 中性",
+    "2 / 7 · 快乐",
+    "3 / 7 · 悲伤",
+    "4 / 7 · 愤怒",
+    "5 / 7 · 恐惧",
+    "6 / 7 · 惊讶",
+    "7 / 7 · 厌恶"
+  ],
+  "developer_controls": 0,
+  "browser_errors_during_demo": [],
+  "driver": "data2 official LAM-A2E",
+  "tts": "existing Bailian voice with theatrical instructions",
+  "pose_correction": "per-clip median head pitch removed; camera at eye height",
+  "validation_scope": "actual seven-emotion demo; not physical microphone or long-session latency acceptance"
+}
