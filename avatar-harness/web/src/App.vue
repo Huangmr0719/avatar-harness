@@ -2,13 +2,14 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import Icon from './components/Icon.vue'
 import AvatarStage from './components/AvatarStage.vue'
+import FaceControls from './components/FaceControls.vue'
 import { useHarness } from './useHarness'
 import type { Renderer } from './types'
 import { BASIC_EMOTIONS, type ExpressionStyle } from './expressionControl'
 import { CHENG_ASSET } from './characters/chengAsset'
 
 const app = useHarness()
-const { latency, expressionState, state, sessions, selected, entries, connected, busy, playing, error, activeTurn, character, moduleStates, renderer, renderState, renderError, cameraStream, cameraState, micState, micLevel, liveTranscript, voiceConnectionState, feedback } = app
+const { facePanelOpen, faceSupported, faceLive, faceOverrides, latency, expressionState, state, sessions, selected, entries, connected, busy, playing, error, activeTurn, character, moduleStates, renderer, renderState, renderError, cameraStream, cameraState, micState, micLevel, liveTranscript, voiceConnectionState, feedback } = app
 const stage = ref<InstanceType<typeof AvatarStage> | null>(null), cameraVideo = ref<HTMLVideoElement | null>(null)
 const log = ref<HTMLElement | null>(null), fileInput = ref<HTMLInputElement | null>(null), draft = ref('')
 const importOpen = ref(false), settingsOpen = ref(false), historyOpen = ref(false), resetToken = ref(0)
@@ -63,7 +64,7 @@ function loadSample() { app.setRenderer({ kind: 'scene', asset_url: '/models/VRM
 function loadLAM() { app.setRenderer({ kind: 'lam', asset_url: '/models/lam/avatar.zip' }); fileName.value = 'LAM · 本地高斯角色'; importOpen.value = false }
 function loadCheng() { app.setRenderer({ kind: 'scene', asset_url: CHENG_ASSET }); fileName.value = '澄 · 原创代码角色'; importOpen.value = false; app.notice('已选择原创二次元角色「澄」：本地转头与眨眼已启用，语音口型驱动尚未接入。') }
 async function copyCommand() { try { await navigator.clipboard.writeText(configureCommand.value); copied.value = true } catch { copied.value = false } }
-function keydown(event: KeyboardEvent) { if (event.key === 'Escape') { importOpen.value = false; settingsOpen.value = false; historyOpen.value = false; if (busy.value || playing.value) void run(app.stop) } }
+function keydown(event: KeyboardEvent) { if (event.key === 'Escape') { importOpen.value = false; settingsOpen.value = false; historyOpen.value = false; app.closeFacePanel(); if (busy.value || playing.value) void run(app.stop) } }
 watch(stage, value => { app.mediaHooks.value = value })
 watch(selected, () => { fileName.value = '' })
 watch(cameraStream, async value => { await nextTick(); if (cameraVideo.value) { cameraVideo.value.srcObject = value; if (value) void cameraVideo.value.play().catch(exc => app.notice(String(exc), 'error')) } })
@@ -85,8 +86,9 @@ onUnmounted(() => { window.removeEventListener('keydown', keydown); if (localURL
       <section class="avatar-workspace" aria-label="数字人工作区">
         <header class="stage-header">
           <div class="stage-identity"><h1>{{ character?.name ?? '角色 01' }}</h1><p>{{ stageDescription }}</p><small v-if="fileName">{{ fileName }}</small></div>
-          <div class="stage-actions"><label v-if="renderer.kind === 'lam'" class="outline">表情 <select :value="expressionState.mode" aria-label="表情风格" @change="app.setExpressionMode(($event.target as HTMLSelectElement).value)"><option value="auto">自动 · {{ expressionLabels[expressionState.style] }}</option><option v-for="emotion in BASIC_EMOTIONS" :key="emotion" :value="emotion">{{ expressionLabels[emotion] }}</option><optgroup label="交流风格"><option value="focused">认真</option><option value="concerned">关切</option></optgroup></select></label><button class="outline" @click="openImport"><Icon name="upload" :size="15" />形象来源</button><button class="outline" :disabled="!['scene', 'lam'].includes(renderer.kind) || renderState !== 'ready'" @click="resetToken++"><Icon name="reset" :size="17" />重置视角</button></div>
+          <div class="stage-actions"><label v-if="renderer.kind === 'lam'" class="outline">表情 <select :value="expressionState.mode" aria-label="表情风格" @change="app.setExpressionMode(($event.target as HTMLSelectElement).value)"><option value="auto">自动 · {{ expressionLabels[expressionState.style] }}</option><option v-for="emotion in BASIC_EMOTIONS" :key="emotion" :value="emotion">{{ expressionLabels[emotion] }}</option><optgroup label="交流风格"><option value="focused">认真</option><option value="concerned">关切</option></optgroup></select></label><button v-if="renderer.kind === 'lam'" class="outline" :aria-pressed="facePanelOpen" :disabled="renderState !== 'ready'" @click="app.toggleFacePanel">部位调节</button><button class="outline" @click="openImport"><Icon name="upload" :size="15" />形象来源</button><button class="outline" :disabled="!['scene', 'lam'].includes(renderer.kind) || renderState !== 'ready'" @click="resetToken++"><Icon name="reset" :size="17" />重置视角</button></div>
         </header>
+        <FaceControls v-if="facePanelOpen && renderer.kind === 'lam'" :supported="faceSupported" :live="faceLive" :overrides="faceOverrides" @change="app.setFaceChannel" @action="app.previewBrow" @reset="app.resetFace" @close="app.closeFacePanel" />
         <div class="stage-canvas">
           <div class="avatar-frame" :class="{ 'is-ready': renderState === 'ready' || renderState === 'embedded' }" aria-label="数字人显示框">
             <AvatarStage ref="stage" :renderer="renderer" :turn-id="activeTurn" :reset-token="resetToken" :expression="expressionState.style" :intensity="expressionState.intensity" :pad="character?.pad" @status="app.setRenderStatus" @driver="driverStatus" />

@@ -235,7 +235,7 @@ func (r *Runtime) run(t *Turn, text string, media bool, inherited []map[string]a
 		}
 		r.module(t, "llm", "running", 0, "")
 		input := map[string]any{"messages": messages, "tools": tools}
-		if structured && len(tools) == 0 {
+		if structured {
 			input["response_format"] = map[string]any{"type": "json_object"}
 		}
 		runErr = r.Bus.LLM(t.Context, input, t.Metadata, func(e map[string]any) error {

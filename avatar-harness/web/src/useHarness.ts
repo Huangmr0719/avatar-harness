@@ -1,10 +1,11 @@
-import { computed, onUnmounted, ref, shallowRef } from 'vue'
+import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { AudioPlayer } from './audio'
 import { SpeechBatcher } from './lamSpeech'
 import { VoiceInput, deviceError } from './voice'
 import { RealtimeVoice } from './realtimeVoice'
 import { ExpressionControl, type ExpressionState } from './expressionControl'
 import { LatencyTracker, type LatencyState } from './latency'
+import { FaceRigControl, type FaceRigSnapshot } from './faceRig'
 import type { AudioSegment, Entry, HarnessEvent, MotionFrame, Renderer, Session, State } from './types'
 
 export async function api<T>(path: string, options?: RequestInit): Promise<T> {
@@ -12,7 +13,7 @@ export async function api<T>(path: string, options?: RequestInit): Promise<T> {
   if (!response.ok) { const error = await response.json().catch(() => ({})); throw new Error(typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}`) }
   return response.json()
 }
-export interface MediaHooks { prepare?: (buffer: AudioBuffer, pts: number) => Promise<{ elapsed_ms: number } | undefined>; frames: (frames: MotionFrame[], base: number) => void; audio: (segment: AudioSegment) => void; probe: () => { at_ms: number; audio_pts_ms: number; frame_pts_ms: number } | null }
+export interface MediaHooks { prepare?: (buffer: AudioBuffer, pts: number) => Promise<{ elapsed_ms: number } | undefined>; frames: (frames: MotionFrame[], base: number) => void; audio: (segment: AudioSegment) => void; probe: () => { at_ms: number; audio_pts_ms: number; frame_pts_ms: number } | null; faceState?: () => FaceRigSnapshot | null; overrideFace?: (values: Record<string, number>) => void }
 
 export function useHarness() {
   const state = ref<State | null>(null), sessions = ref<Session[]>([]), selected = ref<Session | null>(null)
@@ -25,6 +26,28 @@ export function useHarness() {
   const liveTranscript = ref(''), voiceConnectionState = ref('off')
   const character = computed(() => state.value?.characters.find(item => item.id === selected.value?.character_id))
   const mediaHooks = shallowRef<MediaHooks | null>(null)
+  const facePanelOpen = ref(false), faceSupported = ref<string[]>([]), faceLive = ref<Record<string, number>>({}), faceOverrides = ref<Record<string, number>>({})
+  const faceRig = new FaceRigControl()
+  let facePoll: ReturnType<typeof setInterval> | undefined
+  function refreshFace() {
+    const current = mediaHooks.value?.faceState?.()
+    if (!current) return
+    faceSupported.value = current.supported; faceLive.value = current.weights
+    faceRig.setSupported(current.supported)
+  }
+  function applyFaceOverrides() {
+    faceOverrides.value = faceRig.overrides
+    mediaHooks.value?.overrideFace?.(faceOverrides.value)
+  }
+  function resetFace(region?: string) { faceRig.reset(region); applyFaceOverrides() }
+  function setFaceChannel(name: string, value: number) { refreshFace(); if (faceRig.set(name, value)) applyFaceOverrides() }
+  function previewBrow(action: string) { refreshFace(); if (faceRig.browAction(action)) applyFaceOverrides() }
+  function closeFacePanel() { clearInterval(facePoll); facePoll = undefined; facePanelOpen.value = false; resetFace() }
+  function toggleFacePanel() {
+    if (facePanelOpen.value) { closeFacePanel(); return }
+    facePanelOpen.value = true; refreshFace(); facePoll = setInterval(refreshFace, 200)
+  }
+  watch(mediaHooks, () => { resetFace(); if (facePanelOpen.value) refreshFace() })
   const expressionState = ref<ExpressionState>({ mode: 'auto', style: 'neutral', intensity: .7, source: 'default' })
   const expressionControl = new ExpressionControl(value => { expressionState.value = value })
   const latency = ref<LatencyState>({})
@@ -151,10 +174,12 @@ export function useHarness() {
   function setRenderer(value: Renderer) {
     const previous = renderer.value
     if (renderState.value !== 'error' && previous.kind === value.kind && previous.asset_url === value.asset_url && previous.url === value.url && previous.includes_audio === value.includes_audio) return
+    closeFacePanel()
     renderer.value = { ...value }; renderState.value = value.kind === 'none' ? 'none' : 'loading'; renderError.value = ''
   }
   function setRenderStatus(value: string, message = '') { renderState.value = value; renderError.value = message; if (value === 'error') notice(`形象显示失败：${message}`, 'error') }
   async function select(session: Session) {
+    closeFacePanel()
     latencyTracker.reset()
     expressionControl.cancel()
     const generation = ++selectionGeneration
@@ -253,6 +278,6 @@ export function useHarness() {
     }
     catch (exc) { liveVoice.close(); if (generation === micGeneration && (exc as Error).name !== 'AbortError') { micState.value = 'error'; notice(deviceError(exc, '麦克风'), 'error') } }
   }
-  onUnmounted(() => { latencyTracker.cancel(); expressionControl.cancel(); speechBatcher.reset(); liveVoice.close(); stream?.close(); asrAbort?.abort(); audio.stop(); cameraGeneration++; micGeneration++; cameraStream.value?.getTracks().forEach(track => track.stop()); void voice.stop(); timers.forEach(timer => clearTimeout(timer)) })
-  return { latency, expressionState, setExpressionMode: (mode: string) => expressionControl.setMode(mode), state, sessions, selected, entries, connected, busy, playing, error, duration, activeTurn, character, moduleStates, renderer, renderState, renderError, cameraStream, cameraState, micState, micLevel, liveTranscript, voiceConnectionState, feedback, mediaHooks, init, select, newSession, send, stop, clear, toggleCamera, toggleMic, resolveAvatar, setRenderer, setRenderStatus, notice }
+  onUnmounted(() => { clearInterval(facePoll); latencyTracker.cancel(); expressionControl.cancel(); speechBatcher.reset(); liveVoice.close(); stream?.close(); asrAbort?.abort(); audio.stop(); cameraGeneration++; micGeneration++; cameraStream.value?.getTracks().forEach(track => track.stop()); void voice.stop(); timers.forEach(timer => clearTimeout(timer)) })
+  return { facePanelOpen, faceSupported, faceLive, faceOverrides, toggleFacePanel, closeFacePanel, resetFace, setFaceChannel, previewBrow, latency, expressionState, setExpressionMode: (mode: string) => { resetFace(); expressionControl.setMode(mode) }, state, sessions, selected, entries, connected, busy, playing, error, duration, activeTurn, character, moduleStates, renderer, renderState, renderError, cameraStream, cameraState, micState, micLevel, liveTranscript, voiceConnectionState, feedback, mediaHooks, init, select, newSession, send, stop, clear, toggleCamera, toggleMic, resolveAvatar, setRenderer, setRenderStatus, notice }
 }

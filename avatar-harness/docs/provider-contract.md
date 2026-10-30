@@ -114,7 +114,7 @@ LAM 角色的最终回复固定为以下键顺序（需要工具时仍输出原�
 {"emotion":"sad","intensity":0.4,"speech":"<speak/>听起来这件事让你很难受，我们可以慢慢聊。"}
 ```
 
-运行时流式解析 `speech` 字符串，处理跨包 Unicode、引号、换行和反斜杠转义，保留 `<speak/>` 提交门控。基础七类为 `neutral/happy/sad/angry/fearful/surprised/disgusted`，强度为 0–1；旧 `natural/focused/concerned` 继续兼容。元数据和 JSON 包装不送进 TTS，也不写成 assistant 正文。无工具的最终回合使用 `response_format: {"type":"json_object"}`；带原生工具的回合由提示词约束，工具结果后的最终回合恢复 JSON 约束。旧 provider 的纯 `<speak/>` 正文仍兼容。
+运行时流式解析 `speech` 字符串，处理跨包 Unicode、引号、换行和反斜杠转义，保留 `<speak/>` 提交门控。基础七类为 `neutral/happy/sad/angry/fearful/surprised/disgusted`，强度为 0–1；旧 `natural/focused/concerned` 继续兼容。元数据和 JSON 包装不送进 TTS，也不写成 assistant 正文。LAM 回合统一使用 `response_format: {"type":"json_object"}`，包括工具可用的首轮；原生 `tool_calls` 仍按原协议执行。只靠提示词可能产生正文但缺失情感元数据，不能把这种回答视为已执行表情。旧 provider 的纯 `<speak/>` 正文仍兼容。
 
 提交回答时下发 `pipeline.expression`：
 

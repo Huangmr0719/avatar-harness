@@ -53,7 +53,7 @@ test('speech accents move a neutral brow, decay in silence, and never replace ar
   const mixer=new ExpressionMixer();mixer.set('neutral',.6)
   mixer.sample(0,{jawOpen:.1},0)
   const accent=mixer.sample(100,{jawOpen:.65},1)
-  assert.ok(accent.browInnerUp>.02&&accent.browOuterUpLeft>.02)
+  assert.ok(accent.browInnerUp>.15&&accent.browOuterUpLeft>.2)
   assert.equal(accent.jawOpen,.65)
   const quiet=mixer.sample(2500,{},0)
   assert.ok(quiet.browInnerUp<.001&&quiet.browOuterUpLeft<.001)

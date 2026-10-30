@@ -191,6 +191,9 @@ func TestStructuredReplyPreservesNativeToolRoundAndDiscardsPrelude(t *testing.T)
 	var count atomic.Int32
 	b.Register("structured-tools", func(ctx context.Context, req provider.Request, emit provider.Emit) (provider.Result, error) {
 		count.Add(1)
+		if req.Input["response_format"] == nil {
+			t.Error("JSON constraint missing while native tools are available")
+		}
 		if tools, _ := req.Input["tools"].([]map[string]any); len(tools) > 0 {
 			return provider.OK(map[string]any{"content": `{"emotion":"happy","speech":"尚未提交的工具前言`, "tool_calls": []any{map[string]any{"id": "clock", "type": "function", "function": map[string]any{"name": "get_current_time", "arguments": "{}"}}}}), nil
 		}

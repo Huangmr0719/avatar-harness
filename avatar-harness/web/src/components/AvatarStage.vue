@@ -4,6 +4,7 @@ import type { AudioSegment, MotionFrame, Renderer } from '../types'
 import type { AvatarView } from '../scene'
 import type { LamView } from '../lam'
 import type { ExpressionStyle } from '../expressionControl'
+import type { FaceRigSnapshot } from '../faceRig'
 const props = defineProps<{ renderer: Renderer; turnId: string | null; resetToken: number; expression?: ExpressionStyle; intensity?: number; pad?: Record<string, number> }>()
 const emit = defineEmits<{ status: [state: string, message?: string]; driver: [state: string, message?: string] }>()
 const host = ref<HTMLElement | null>(null)
@@ -26,7 +27,7 @@ watch(() => props.renderer, async (renderer) => {
 watch(() => props.turnId, () => view?.clearMotion())
 watch(() => props.resetToken, () => view?.reset())
 watch(() => [props.expression, props.intensity] as const, ([style, intensity]) => { if (view && 'setExpression' in view) view.setExpression(style ?? 'neutral', intensity ?? 1) })
-defineExpose({ frames: (frames: MotionFrame[], base: number) => view?.addFrames(frames, base), audio: (segment: AudioSegment) => view?.addAudio(segment), prepare: async (buffer: AudioBuffer, pts: number) => { if (view && 'prepare' in view) return await view.prepare(buffer, pts) }, probe: () => view?.probe() ?? null })
+defineExpose({ frames: (frames: MotionFrame[], base: number) => view?.addFrames(frames, base), audio: (segment: AudioSegment) => view?.addAudio(segment), prepare: async (buffer: AudioBuffer, pts: number) => { if (view && 'prepare' in view) return await view.prepare(buffer, pts) }, probe: () => view?.probe() ?? null, faceState: (): FaceRigSnapshot | null => view && 'faceState' in view ? view.faceState() : null, overrideFace: (values: Record<string, number>) => { if (view && 'setFaceOverrides' in view) view.setFaceOverrides(values) } })
 onBeforeUnmount(() => { generation++; view?.dispose() })
 </script>
 <template>

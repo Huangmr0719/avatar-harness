@@ -18,8 +18,8 @@ const poses: Record<ExpressionStyle, Record<string, number>> = {
 
 // Small measured-energy accents, not emotion recognition or random face motion.
 const accents: Record<ExpressionStyle, Record<string, number>> = {
-  neutral: { browInnerUp: .14, browOuterUpLeft: .18, browOuterUpRight: .18, eyeWideLeft: .06, eyeWideRight: .06 },
-  natural: { browInnerUp: .14, browOuterUpLeft: .18, browOuterUpRight: .18 },
+  neutral: { browInnerUp: .5, browOuterUpLeft: .65, browOuterUpRight: .65, eyeWideLeft: .06, eyeWideRight: .06 },
+  natural: { browInnerUp: .5, browOuterUpLeft: .65, browOuterUpRight: .65 },
   happy: { browOuterUpLeft: .16, browOuterUpRight: .16, cheekSquintLeft: .08, cheekSquintRight: .08 },
   sad: { browInnerUp: .1, eyeSquintLeft: .04, eyeSquintRight: .04 },
   angry: { browDownLeft: .12, browDownRight: .12, eyeSquintLeft: .08, eyeSquintRight: .08 },
