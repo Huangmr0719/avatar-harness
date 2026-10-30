@@ -1,5 +1,7 @@
 # data2 数字人模型服务
 
+Windows 客户端使用 [Windows Agent 部署指南](windows-lan-agent.md)，同样通过 SSH 隧道访问以下现有服务。
+
 Mac 保留 Go harness、麦克风/摄像头采集和浏览器界面。data2 运行 GPU 驱动与离线形象制作。所有新增服务器文件位于 `/data2/huangmr/code/avatar-harness/`；现有 `/data2/huangmr/envs/au_gen` 作为只读 CUDA 依赖来源，未升级或降级。
 
 | 服务 | 模型 | 默认 GPU | data2 本机端口 |

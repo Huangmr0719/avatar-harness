@@ -3,6 +3,7 @@
 Go + Vue/Three.js 的桌面数字人 Harness，支持终端配置 provider、实时语音识别、流式回复、随时打断、本地 LAM 高斯渲染与语音口型、LLM 七类情感表情和语音控制。
 
 - [应用源码与使用说明](avatar-harness/README.md)
+- [Windows 同网段部署：给 Agent 的执行指南](avatar-harness/docs/windows-lan-agent.md)
 - [本地 LAM、情感控制及验证记录](avatar-harness/docs/lam-local.md)
 - [data2 GPU 模型服务、目录与启停](avatar-harness/docs/data2-models.md)
 - [Provider / 外部 FastAPI 接口](avatar-harness/docs/provider-contract.md)
@@ -11,6 +12,8 @@ Go + Vue/Three.js 的桌面数字人 Harness，支持终端配置 provider、实
 `avatar-harness/` 是应用目录，`assets/` 保存原始角色资产和来源记录。保留这一层结构，以便资产准备脚本和文档中的相对路径正常工作。
 
 ## 首次构建
+
+Windows 已安装 WSL 时，请按上面的 WSL2 指南执行；其中也提供原生 PowerShell 备选方案。本节命令用于 macOS / Linux。
 
 需要 Go 1.24+、Node.js 22.12+、Git LFS。模型和角色二进制文件通过 LFS 保存；源码克隆完成后执行：
 

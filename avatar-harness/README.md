@@ -4,6 +4,8 @@
 
 **运行核心使用 Go。** 正常启动不需要 Python、Node.js、CUDA 或另行下载模型权重。前端已打包进可执行文件；Python 模型作为独立服务接入。配置、密钥、会话与原 SQLite 文件保存在 `.avatar-harness/`，参考来源与许可见 `sources.lock.json` 和 `integrations/licenses/`。
 
+Windows 电脑连接现有 data2 GPU 服务，请直接使用 [Windows Agent 部署指南](docs/windows-lan-agent.md)：优先在已有 WSL2 中运行 Go 与 SSH 隧道，Windows 浏览器负责渲染和麦克风；另有原生 PowerShell 备选方案。无需在客户端安装 Python / CUDA。
+
 ## 当前 Mac 启动
 
 ```bash
