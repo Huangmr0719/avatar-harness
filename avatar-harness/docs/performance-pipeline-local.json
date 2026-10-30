@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-29",
+  "source": "local_scripted_websocket_fixture",
+  "benchmark": "BenchmarkSpeechPipelineFirstAudio",
+  "iterations_per_version": 5,
+  "scripted_llm_first_phrase_wait_ms": 120,
+  "scripted_connection_preparation_ms": 40,
+  "tts_concurrency": 1,
+  "segments_per_turn": 3,
+  "before": {
+    "first_audio_ms_per_op": 166.6,
+    "websocket_connections_per_op": 3,
+    "turn_ns_per_op": 260091925
+  },
+  "after": {
+    "first_audio_ms_per_op": 121.0,
+    "websocket_connections_per_op": 1,
+    "turn_ns_per_op": 121248492
+  },
+  "cloud_models_used": false,
+  "browser_playback_verified": false,
+  "avatar_sync_verified": false
+}

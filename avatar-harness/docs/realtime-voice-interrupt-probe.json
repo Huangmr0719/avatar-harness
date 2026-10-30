@@ -1,0 +1,22 @@
+{
+  "time": "2026-10-29T11:32:35.792Z",
+  "source": "synthetic_speech_paced_in_realtime",
+  "metric": "speech_end_to_first_audio_packet_not_playback",
+  "input_text": "请介绍光合作用的主要过程。",
+  "model": "qwen3.8-flash",
+  "session_id": "83e8c6cddd267869740572dd",
+  "partial_before_endpoint": true,
+  "partial_before_speech_end": true,
+  "first_partial_ms": -1934.3,
+  "final_asr_ms": 636.2,
+  "first_text_ms": 1444.8,
+  "first_audio_packet_ms": 2019,
+  "target_ms": 3000,
+  "within_transport_target": true,
+  "playback_verified": false,
+  "avatar_sync_verified": false,
+  "audio_packets_received": 1,
+  "answer": "光合作用主要是植物把光能转化成化学能的过程，可以分为两个阶段。\n\n第一阶段叫光反应，发生在叶绿体的类囊体薄膜上。植物通过色素吸收光能，",
+  "interrupted": true,
+  "cancel_ack_ms": 0.7
+}

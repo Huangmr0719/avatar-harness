@@ -1,0 +1,22 @@
+{
+  "time": "2026-10-29T11:49:22.283Z",
+  "source": "synthetic_speech_paced_in_realtime",
+  "metric": "speech_end_to_first_audio_packet_not_playback",
+  "input_text": "请简单介绍光合作用的主要过程。",
+  "model": "deepseek-v4.1-flash-1017",
+  "session_id": "1eb2893af0a37e3b82a11cd1",
+  "partial_before_endpoint": true,
+  "partial_before_speech_end": true,
+  "first_partial_ms": -2210.3,
+  "final_asr_ms": 606.3,
+  "first_text_ms": 1329,
+  "first_audio_packet_ms": 1862.6,
+  "target_ms": 3000,
+  "within_transport_target": true,
+  "playback_verified": false,
+  "avatar_sync_verified": false,
+  "audio_packets_received": 1,
+  "answer": "光合作用是植物把光能转成化学能的过程，大致分两步。第一步是光反应，在叶绿体类囊体膜上进行，叶绿素吸收光能，把水分解产生氧气，同时生成ATP和NADPH。第二步是暗反应，也叫卡尔文循环，在叶绿体基质中进行，利用ATP",
+  "interrupted": true,
+  "cancel_ack_ms": 0.6
+}

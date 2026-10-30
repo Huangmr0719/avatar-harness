@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "host": "127.0.0.1",
+  "port": 8765,
+  "providers": {
+    "llm": {
+      "kind": "deferred",
+      "base_url": "",
+      "model": "",
+      "api_key_env": "",
+      "factory": "",
+      "streaming": false,
+      "timeout_ms": 15000,
+      "parameters": {}
+    },
+    "asr": {
+      "kind": "deferred",
+      "base_url": "",
+      "model": "",
+      "api_key_env": "",
+      "factory": "",
+      "streaming": false,
+      "timeout_ms": 15000,
+      "parameters": {}
+    },
+    "tts": {
+      "kind": "deferred",
+      "base_url": "",
+      "model": "",
+      "api_key_env": "",
+      "factory": "",
+      "streaming": false,
+      "timeout_ms": 15000,
+      "parameters": {}
+    },
+    "avatar": {
+      "kind": "deferred",
+      "base_url": "",
+      "model": "",
+      "api_key_env": "",
+      "factory": "",
+      "streaming": false,
+      "timeout_ms": 15000,
+      "parameters": {}
+    }
+  },
+  "tools": [
+    {
+      "name": "get_current_time",
+      "description": "读取真实当前时间。需要日期或时间时调用。",
+      "kind": "internal",
+      "base_url": "",
+      "api_key_env": "",
+      "factory": "",
+      "timeout_ms": 500,
+      "read_only": true,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "timezone": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_characters",
+      "description": "列出已经配置的角色与形象资产状态。",
+      "kind": "internal",
+      "base_url": "",
+      "api_key_env": "",
+      "factory": "",
+      "timeout_ms": 500,
+      "read_only": true,
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "text_stats",
+      "description": "调用外部 FastAPI 统计真实文字长度",
+      "kind": "fastapi",
+      "base_url": "http://127.0.0.1:9901",
+      "api_key_env": "",
+      "factory": "",
+      "timeout_ms": 500,
+      "read_only": true,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "characters": [
+    {
+      "id": "character-01",
+      "name": "角色 01",
+      "asset_path": "",
+      "voice": "",
+      "persona": "自然、简洁地使用中文回答。需要外部事实时使用工具。",
+      "pad": {
+        "pleasure": 0.2,
+        "arousal": 0.0,
+        "dominance": 0.0
+      }
+    }
+  ],
+  "limits": {
+    "first_response_ms": 3000,
+    "tool_batch_ms": 500,
+    "max_tool_batches": 1,
+    "max_turn_ms": 30000,
+    "tts_concurrency": 2,
+    "max_history_messages": 20
+  },
+  "oac_url": ""
+}

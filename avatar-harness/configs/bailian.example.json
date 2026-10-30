@@ -1,0 +1,108 @@
+{
+  "version": 2,
+  "host": "127.0.0.1",
+  "port": 8765,
+  "providers": {
+    "asr": {
+      "kind": "bailian",
+      "base_url": "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
+      "model": "qwen3-asr-flash-realtime",
+      "api_key_env": "DASHSCOPE_API_KEY",
+      "streaming": true,
+      "timeout_ms": 15000,
+      "parameters": {
+        "language": "zh"
+      }
+    },
+    "avatar": {
+      "kind": "deferred",
+      "base_url": "",
+      "model": "",
+      "api_key_env": "",
+      "streaming": false,
+      "timeout_ms": 15000
+    },
+    "llm": {
+      "kind": "openai",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "model": "deepseek-v4.1-flash-1017",
+      "api_key_env": "DASHSCOPE_API_KEY",
+      "streaming": true,
+      "timeout_ms": 15000,
+      "parameters": {
+        "enable_thinking": false,
+        "max_tokens": 512
+      }
+    },
+    "tts": {
+      "kind": "bailian",
+      "base_url": "wss://dashscope.aliyuncs.com/api-ws/v1/inference",
+      "model": "qwen-audio-3.1-tts-flash",
+      "api_key_env": "DASHSCOPE_API_KEY",
+      "streaming": true,
+      "timeout_ms": 15000,
+      "parameters": {
+        "language_hints": ["zh"],
+        "sample_rate": 24000,
+        "voice": "longanhuan_v3.1"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "get_current_time",
+      "description": "读取真实当前日期和时间。",
+      "kind": "internal",
+      "timeout_ms": 500,
+      "read_only": true,
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "timezone": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_characters",
+      "description": "列出已配置角色及资产状态。",
+      "kind": "internal",
+      "timeout_ms": 500,
+      "read_only": true,
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    }
+  ],
+  "characters": [
+    {
+      "id": "character-01",
+      "name": "角色 01",
+      "asset_path": "",
+      "voice": "",
+      "persona": "自然、简洁地使用中文回答；需要外部事实时使用工具。",
+      "pad": {
+        "arousal": 0,
+        "dominance": 0,
+        "pleasure": 0.2
+      },
+      "renderer": {
+        "kind": "none"
+      }
+    }
+  ],
+  "limits": {
+    "first_response_ms": 3000,
+    "tool_batch_ms": 500,
+    "max_tool_batches": 1,
+    "max_turn_ms": 30000,
+    "tts_concurrency": 2,
+    "max_history_messages": 20,
+    "voice_silence_ms": 400,
+    "voice_onset_ms": 80
+  }
+}

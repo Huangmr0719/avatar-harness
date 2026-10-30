@@ -1,0 +1,95 @@
+# Mac 本地 LAM
+
+浏览器使用 `@myned-ai/gsplat-flame-avatar-renderer@1.4.0` 渲染 LAM 高斯资产。语音推理使用 `onnxruntime-web@1.23.2`，在独立 Worker 的 WASM 中运行，模型、运行时和资产全部从当前 Go 服务读取，无运行时 CDN 请求，不需要 Python 或 CUDA 服务。
+
+对话、ASR、TTS 仍走已配置的百炼；密钥只在 Go 服务端使用。`avatar` provider 可以保持 `deferred`，因为当前语音驱动在浏览器执行。页面“驱动就绪”来自实际模型加载和预热，不能用 provider 的配置状态替代。
+
+## 启动与配置
+
+```sh
+./start serve --no-open
+```
+
+本工作区首个角色已配置为 `LAM · 本地数字人`。打开 http://127.0.0.1:8765/ ，等待“驱动就绪”，再点击“开始说话”。保留了停止、语音插话取消、摄像头预览和事件日志。
+
+其他配置可运行 `./start configure-avatar`，选择本地资产并填入 LAM ZIP 路径；或设置角色 `renderer` 为：
+
+```json
+{"kind":"lam","asset_url":"/models/lam/avatar.zip"}
+```
+
+当前导出动画已使用 `scripts/prepare-lam-avatar.py` 适配片段顺序。其他资产若片段不同，需检查动画状态映射；不要用 GLTFLoader 加载整个 LAM ZIP。
+
+## 真实语音与同步
+
+百炼 PCM 包先合并为约 400ms，大包分块并限制每块最多 500ms，避免首个音频块触发多次推理后才起播；短尾等 70ms 后刷新；采样率变化或 PTS 不连续时不合并。音频重采样到单声道 16kHz，以滚动 1 秒上下文推理，只取新增音频对应的后缀帧。面部帧生成后，音频进入 AudioContext 排程，动作依照实际排程 PTS 读取。
+
+停止／插话会取消播放、清空待合并 PCM、重置上下文和动作时间线；已在运行的 WASM 算子会完成，但其过期结果不能重新启动声音。音频结束后恢复闭口待机。
+
+表情默认自动：同一次 LLM 回复输出紧凑 JSON，包含 `emotion`、`intensity`、`speech`，后端流式解析后分别下发表情事件与正文。正文开始提交后即可驱动 TTS，不等待整份 JSON 结束，不额外调用一次 LLM，也不增加工具往返回合。需要外部工具时继续走原生 tool_calls，工具结果后的最终回复再输出上述 JSON。
+
+页面显示“自动 · 当前表情”，可手动预览中性、快乐、悲伤、愤怒、恐惧、惊讶、厌恶，并兼容认真、关切交流风格；再选择自动即可恢复控制。自动表情默认保持 8 秒，停止、插话或新会话会清除旧轮状态；重放历史和迟到结果不能改变当前表情。强度与样式均检查范围，参数本身不混入日志正文或 TTS 播报文本；TTS 以独立指令使用同一份情感。表情结合角色 PAD 基线叠加到神经口型，眨眼和头动仍由本地程序与资产动画提供；这不等同于声学情绪识别或完整的人格／情感感知链。
+
+`audio_video` 记录须同时满足有声 AudioContext 播放已观察到、匹配的面部参数已提交渲染、PTS 差在 100ms 内。真实麦克风、云端延迟和长会话还应分别测量；单次文本起播不能证明“说完后 3 秒”的语音指标。
+
+## 模型来源与映射
+
+- 社区导出：https://huggingface.co/adolon-ai/lam-a2e
+- 文件：`web/public/models/lam-a2e/lam_ios.onnx` 和 `.data`，约 192MiB，Apache-2.0（上游仓库声明）。
+- 图 SHA-256：`f73c6b7b103978ce250919432f574e6516b246d36ac27fd1d0f33142ca0ee497`
+- 权重 SHA-256：`85da29caad1bdc755a2aaaffa020e110e9923ab9e91d1f7f0d7f84f89e04ea6c`
+- `config.json`、`provenance.json` 原样保留。后者明确说明原始微调 checkpoint 的来源记录不完整。因此当前使用的是社区 Wav2ARKit 转换模型，不能声称它是官方 LAM 权重的逐数值等价复现。
+- 社区 config 的名字列表是 Apple 顺序，模型实际沿用 LAM 的字母序；`jawOpen` 是第 24 通道。实现按官方 LAM 示例及 Wav2ARKit 原始通道表排序，以真实中文音频与画面变化复核，避免错误驱动眼睛／嘴巴。
+- 参考：https://github.com/aigc3d/LAM_WebRender 、https://huggingface.co/myned-ai/wav2arkit_cpu 。后者只用于核对通道定义，没有作为当前模型下载。
+
+## 开发与验证
+
+```sh
+cd web
+npm ci
+npm test
+npm run build
+cd ..
+./scripts/go test -race ./...
+./scripts/build
+```
+
+前端 `prebuild` / `predev` 自动准备本地 ONNX WASM 运行时；源码构建需要保留上述模型文件。最终二进制包含它们，因此体积会增大约 200MiB。
+
+## 本机验证记录（2026-10-30）
+
+最终 Go 服务 + Mac Chromium，1600×1000。真实百炼 ASR／LLM／TTS，浏览器使用 2.88 秒中文合成录音作为麦克风输入。新会话仍保持驱动就绪；本轮从 VAD 末个有声帧到有声 AudioContext 播放为 2935ms，到匹配面部参数已渲染为 2953ms，记录的 PTS 差为 -12.2ms。WASM 单窗口推理 353–369ms，观察到 jawOpen 随音频变化最高约 0.30；表情切换和停止后恢复闭口已检查，相关浏览器运行错误为零。
+
+这是一次合成录音联调，不是物理麦克风测试或 P95 延迟承诺。此前文本请求观测有超过 3 秒的情况，云端响应仍会波动。自动检查：前端 20 项通过，Go race、vet 与生产构建通过。
+
+同日结构化表情版本复测（隔离配置与会话，Mac Chromium 1600×1000）：祝贺话题自动 happy / 0.8，安慰话题自动 concerned / 0.7；每轮只有一次 LLM 请求，JSON 未混入可见正文，手动覆盖有效。相同光合作用合成录音输入，本轮有声起播 2407ms、音画 2421ms，PTS 差 -6.6ms，浏览器运行错误为零。这些是单次观测，不能据此推断 P95 或声称比上一轮更快。前端现为 23 项测试。另有后端测试用未闭合 JSON 阻塞 LLM 尾部，确认 TTS 已处理正文；覆盖逐字节分片、Unicode 转义、工具前言隔离与工具返回后结构化回复。
+
+## LAM 官方表情坐标与延迟面板
+
+参考 [LAM_WebRender 的 asset/test_expression_1s.json](https://github.com/aigc3d/LAM_WebRender/blob/12174e944957fc6445f235c5e0ff7e3e16ba209a/asset/test_expression_1s.json)。该文件含 52 个 `names` 和 973 个 `time/weights/rotation` 帧，时间覆盖 0–32.4 秒，不带情绪类别标签。当前以其通道顺序统一浏览器模型输出和渲染映射（jawOpen=24、eyeBlinkLeft=8），不从文件名推断时长，也不把样例说话动作冒充某种情绪。通道列表来自 MIT 源码，来源和校验值见 sources.lock.json。
+
+`expressionMixer.ts` 提供中性、快乐、悲伤、愤怒、恐惧、惊讶、厌恶七类项目自定义眉眼、面颊、嘴角姿态，并兼容原有认真、关切；用完整 52 维权重与时间平滑插值实现切换。说话时保留真实音频的下颌、闭唇、撅嘴等通道，静音时明确归零语音通道。这些情感映射是本项目规则，官方样例没有为其提供情绪标签或质量证明。
+
+底栏常驻 Total / Avatar / TTS / LLM Delay。每轮只取第一次观测；播放等待期间不以分项相加代替 Total。具体计时口径见 [provider-contract.md](provider-contract.md#桌面延迟统计)。
+
+## 语音短答约束
+
+语音系统提示词要求面对面交谈式短答：默认 1–2 句、约 20–60 字，正文最多 80 字，只讲当前问题最重要的一点；复杂话题分轮展开，不主动变成长篇科普、列表或演讲。用户明确要求详细说明时，每次仍最多 3 句、120 字。字符约束针对 speech 可播报正文，不包含表情 JSON 与提交标记。工具调用和结构化输出协议保持一致。
+
+本轮延迟面板与短答版本验证（2026-10-30）：Mac Chromium 1600×1000 和 1280×800，合成录音到有声播放 2714ms、音画确认 2719ms；首块 Avatar 367ms、首段 TTS 303ms、首个可播报正文 LLM 786ms。数字与实际播放上报一致，后续音频不改写首项，新会话恢复“—”；桌面底栏无溢出，浏览器相关错误为零。该结果是一次观测，不是 P95。前端 30 项检查、Go race/vet、构建通过。
+
+## 七类情感与情感 TTS 验证（2026-10-30）
+
+TTS 改用 `qwen-audio-3.1-tts-flash`、`longanhuan_v3.1`、24 kHz PCM。LLM 同一条结构化回复输出基础七类情感与 0–1 强度；本地将这份状态同时交给脸部混合器和 TTS 的 `instruction`。原 Qwen3-TTS-Realtime 协议继续兼容。连接提前准备，情感确定后才启动任务；每段新 UUID，完成后复用连接，取消关闭连接，不重放部分音频。
+
+隔离配置下逐类合成相同短句，七类均返回有效 PCM，单次完整合成耗时 554–1236ms；这是完整短句合成时间，不是首包或语音端到端延迟。七类菜单逐项切换和渲染检查通过。快乐、悲伤真实对话分别输出 happy/0.9、sad/0.5，TTS 收到同样参数；每轮一次 LLM 请求，日志与播报无 JSON 泄漏，手动脸部覆盖有效。此处确认参数接通与渲染可用，不代表七类听感或表情辨识率已验收。
+
+相同合成录音经真实 ASR、LLM、TTS 到浏览器有声起播为 2562ms，音画确认 2572ms；Avatar 368ms、TTS 首包 465ms、LLM 可播报正文 923ms。单项存在并行，不能相加。1280×800 底栏无溢出，浏览器相关错误为零。独立语音传输检查中，说完前已有临时转录，首音频包后取消成功，收到取消确认约 0.6ms（仅本地控制确认，不表示云端算子停止耗时）。这些都是单次合成录音观测，不是物理麦克风或 P95 保证。
+
+自动检查：32 项前端测试、Vue 类型检查与构建、Go 全量 race/vet 通过。新增覆盖七类解析、同一情感传入 TTS、语音通道保留、强度归零、二进制 PCM 分帧、任务 ID、空/截断/错误任务、连接复用与取消。脱敏观测见 [emotional-tts-validation.json](emotional-tts-validation.json)。
+
+## 角色音色绑定（2026-10-30）
+
+上述首次情感测试使用官方示例音色龙安欢（女声），没有完成与当前男性 LAM 形象的匹配。现已给 `character-01` 单独设置 `voice: longtian_v3.1`（龙天，官方描述为男声、磁性、理智），以配合当前形象的成年男性风格；其他角色与 provider 通用默认值保持原配置。角色 `voice` 优先于 provider 默认音色，选择其他角色时按各自配置取值。
+
+该男声在真实 `qwen-audio-3.1-tts-flash` 上逐类合成七种情感均成功返回 24 kHz PCM，短句完整合成耗时 705–948ms；不是端到端起播指标，也未复用上一音色的 2.56 秒结论。声线选择基于外观与官方音色描述，整体听感匹配仍以试听为准。见 [中性试听](samples/lam-longtian-neutral.wav)、[验证记录](voice-match-validation.json)及[官方音色表](https://help.aliyun.com/zh/model-studio/qwen-audio-tts-voice-list)。

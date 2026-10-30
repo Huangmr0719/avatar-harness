@@ -1,0 +1,12 @@
+{
+  "source": "browser_synthetic_speech",
+  "metric": "speech_end_to_audio_context_playback",
+  "partial_before_speech_end": true,
+  "transcript": "请用一句话解释什么是光合作用。",
+  "answer_prefix": "光合作用是植物、藻类等利用光能，把二氧化碳和水转化为有机物并释放氧气的过程。",
+  "first_audio_packet_ms": 3910,
+  "audio_context_playback_ms": 3960,
+  "audio_within_budget": false,
+  "physical_microphone_used": false,
+  "avatar_sync_verified": false
+}

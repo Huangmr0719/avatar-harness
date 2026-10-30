@@ -1,0 +1,50 @@
+# Go Harness → OpenAvatarChat。GPU、LAM 资产与语音凭据需要单独就绪。
+default:
+    chat_engine:
+        concurrent_limit: 5
+        handler_configs:
+            CosyVoice:
+                enabled: true
+                model_name: cosyvoice-v1
+                module: tts/bailian_tts/tts_handler_cosyvoice_bailian
+                voice: longxiaocheng
+            InterruptHandler:
+                module: logic/interrupt/interrupt_handler
+            LAM_Driver:
+                module: avatar/lam/avatar_handler_lam_audio2expression
+            LLMOpenAICompatible:
+                api_key: oac-local
+                api_url: http://127.0.0.1:8765/oac/v1
+                enable_video_input: false
+                enabled: true
+                history_length: 20
+                model_name: avatar-harness/character-01
+                module: llm/openai_compatible/llm_handler_openai_compatible
+                system_prompt: 使用自然口语回答，不输出 Markdown。
+            LamClient:
+                asset_path: REPLACE_WITH_PREGENERATED_LAM.zip
+                connection_ttl: 900
+                module: client/ws_lam_client/ws_lam_client_handler
+                upstream_mode: ws
+            SenseVoice:
+                enabled: true
+                model_name: iic/SenseVoiceSmall
+                module: asr/sensevoice/asr_handler_sensevoice
+            SileroVad:
+                buffer_look_back: 5000
+                end_delay: 5000
+                module: vad/silerovad/vad_handler_silero
+                speaking_threshold: 0.15
+                speech_padding: 512
+                start_delay: 2048
+                volume_threshold: -30
+        handler_search_path:
+            - src/handlers
+        model_root: models
+    logger:
+        log_level: INFO
+    service:
+        cert_file: ssl_certs/localhost.crt
+        cert_key: ssl_certs/localhost.key
+        host: 0.0.0.0
+        port: 8282

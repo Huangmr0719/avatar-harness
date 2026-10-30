@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")"
+if [ ! -x bin/avatar-harness ] || [ -n "$(find cmd/avatar-harness internal web/dist integrations/assets.go integrations/oac/lam-base.yaml web/assets.go go.mod go.sum -type f -newer bin/avatar-harness -print -quit 2>/dev/null)" ]; then
+  ./scripts/build
+fi
+exec ./bin/avatar-harness "$@"
+

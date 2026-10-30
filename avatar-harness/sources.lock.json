@@ -1,0 +1,89 @@
+{
+  "OpenAvatarChat": {
+    "repository": "https://github.com/HumanAIGC-Engineering/OpenAvatarChat",
+    "revision": "8b7b3b45bca28ae9ab5fa72ee31bc03c5a99b08b",
+    "reference_source": "src/handlers/agent/tools/base_tool.py",
+    "license": "Apache-2.0",
+    "license_file": "integrations/licenses/OpenAvatarChat-LICENSE",
+    "integration": "Go tool contract reimplementation, /oac/v1/chat/completions bridge and integrations/oac/lam-base.yaml configuration template. Full LAM media still uses its own client/SDK."
+  },
+  "AIRI": {
+    "repository": "https://github.com/moeru-ai/airi",
+    "reference_only": true,
+    "patterns": [
+      "runtime tool registration",
+      "ordered segmented TTS",
+      "per-turn cancellation",
+      "provider separation"
+    ],
+    "files": [
+      "packages/pipelines-audio/src/speech-pipeline.ts",
+      "packages/stage-ui/src/stores/ai/chat-llm/tools.ts"
+    ]
+  },
+  "pi": {
+    "repository": "https://github.com/earendil-works/pi",
+    "reference_only": true,
+    "patterns": [
+      "minimal kernel",
+      "CLI-first configuration",
+      "pluggable tools",
+      "event stream"
+    ]
+  },
+  "webai_realtime_voice": {
+    "repository": "https://github.com/proj-airi/webai-example-realtime-voice-chat",
+    "revision": "b7a8fa42efa246de9e771c6473afd70b5eb52ad7",
+    "reference_only": true,
+    "license": "MIT",
+    "license_file": "integrations/licenses/webai-example-realtime-voice-chat-LICENSE"
+  },
+  "browser_renderer": {
+    "three": "0.180.0",
+    "three-vrm": "3.5.5",
+    "asset": "web/public/models/VRM1_Constraint_Twist_Sample.vrm",
+    "asset_sha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
+    "asset_notice": "web/public/models/NOTICE.md"
+  },
+  "lam_local": {
+    "renderer": {
+      "package": "@myned-ai/gsplat-flame-avatar-renderer",
+      "version": "1.4.0",
+      "repository": "https://github.com/myned-ai/gsplat-flame-avatar-renderer",
+      "license": "MIT",
+      "license_file": "integrations/licenses/gsplat-flame-avatar-renderer-LICENSE"
+    },
+    "runtime": {
+      "package": "onnxruntime-web",
+      "version": "1.23.2",
+      "backend": "wasm",
+      "worker": true
+    },
+    "audio_model": {
+      "repository": "https://huggingface.co/adolon-ai/lam-a2e",
+      "graph": "web/public/models/lam-a2e/lam_ios.onnx",
+      "graph_sha256": "f73c6b7b103978ce250919432f574e6516b246d36ac27fd1d0f33142ca0ee497",
+      "weights_sha256": "85da29caad1bdc755a2aaaffa020e110e9923ab9e91d1f7f0d7f84f89e04ea6c",
+      "declared_license": "Apache-2.0",
+      "provenance": "web/public/models/lam-a2e/provenance.json",
+      "provenance_limit": "Exact base checkpoint and fine-tuner not established by conversion maintainer",
+      "channel_order": "alphabetical LAM order; jawOpen index 24"
+    },
+    "character": {
+      "original": "../assets/characters/lam/chatting_avatar_20261030091048.zip",
+      "original_sha256": "e9e2cd00ff3ae91a8adc5e18b65ed810f5bf01d37aea23b17c5fd0010bf2937b",
+      "runtime": "web/public/models/lam/avatar.zip",
+      "preparation": "scripts/prepare-lam-avatar.py",
+      "license": "user-supplied asset; no license bundled"
+    },
+    "expression_reference": {
+      "repository": "https://github.com/aigc3d/LAM_WebRender",
+      "revision": "12174e944957fc6445f235c5e0ff7e3e16ba209a",
+      "path": "asset/test_expression_1s.json",
+      "sha256": "c2fef11051ddb9d5678cc42f58c32b344a3697ef98ed65f33ca3165f0dd3388d",
+      "license": "MIT",
+      "license_file": "integrations/licenses/LAM-WebRender-LICENSE",
+      "integration": "Official 52-channel coordinate order in web/src/arkit.ts; complete weight vectors and smooth, project-authored expression poses. The speech clip is not used as an emotion-labelled asset."
+    }
+  }
+}

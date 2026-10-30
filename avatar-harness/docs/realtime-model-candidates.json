@@ -1,0 +1,50 @@
+[
+  {
+    "model": "qwen-flash",
+    "iteration": 1,
+    "first_text_ms": 495.348,
+    "total_ms": 542.092
+  },
+  {
+    "model": "qwen3.6-flash",
+    "iteration": 1,
+    "first_text_ms": 563.72,
+    "total_ms": 843.535
+  },
+  {
+    "model": "qwen3.7-flash",
+    "iteration": 1,
+    "first_text_ms": 642.121,
+    "total_ms": 915.778
+  },
+  {
+    "model": "qwen-flash",
+    "iteration": 2,
+    "first_text_ms": 352.008,
+    "total_ms": 574.467
+  },
+  {
+    "model": "qwen3.8-flash",
+    "iteration": 1,
+    "first_text_ms": 1101.993,
+    "total_ms": 1273.037
+  },
+  {
+    "model": "qwen3.6-flash",
+    "iteration": 2,
+    "first_text_ms": 298.666,
+    "total_ms": 502.402
+  },
+  {
+    "model": "qwen3.7-flash",
+    "iteration": 2,
+    "first_text_ms": 695.297,
+    "total_ms": 829.453
+  },
+  {
+    "model": "qwen3.8-flash",
+    "iteration": 2,
+    "first_text_ms": 380.132,
+    "total_ms": 832.269
+  }
+]

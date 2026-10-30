@@ -1,0 +1,21 @@
+{
+  "artifact": "omote-ai/lam-a2e",
+  "method": "conversion pipeline over a pre-existing fp32 A2E model (no training performed in the Omote repo)",
+  "architecture": "Wav2Vec2-base dual-head: 52 ARKit blendshapes (A2E) + CTC ASR; inputs audio float32 [1, 16000] @ 16 kHz + identity one-hot float32 [1, 12]; implementation tag wav2arkit_v1",
+  "base_checkpoint": {
+    "model": "unknown",
+    "note": "HONEST-UNKNOWN per the Omote asset-custody tenet: the exact pretrained Wav2Vec2 checkpoint and the party that performed the A2E fine-tune are not establishable from the Omote repository's docs, registry, or training scripts - no training script for this model exists there. Repo docs identify the third-party myned-ai/wav2arkit_cpu as an older fp32 baseline of the same Wav2ARKit A2E family. Recorded as unknown rather than invented."
+  },
+  "fp32_parent": "fp32 single-file model formerly hosted at omote-ai/lam-a2e (fp32/ prefix), removed after the fp16 exports superseded it",
+  "derived_artifacts": {
+    "model_fp16.onnx + .data": "surgical Tier-2 mixed-precision fp16 (scripts/model-exports/lam-desktop/convert_fp16_surgical.py in the Omote repo) - decomposed-LayerNorm subgraphs kept fp32; cosine similarity 0.999999 vs fp32 reference on WebGPU",
+    "lam_ios.onnx + .data": "iOS/Safari surgery (scripts/model-exports/lam-ios/convert_v2.py) - opset 14 to 18, 32 LayerNorms fused (1339 to 608 nodes), CTC head removed, fp16"
+  },
+  "eval": {
+    "eval_gate": null,
+    "note": "No standing model-quality eval script - legacy pre-governance artifact; conversion fidelity was gated at export time by the export kits."
+  },
+  "license": "Apache-2.0",
+  "recorded_at": "2026-07-25",
+  "recorded_by": "Omote T1 custody fix wave (D11 audit follow-up); source of truth: docs/models/registry.toml + scripts/model-exports/lam-desktop/provenance.json in the Omote repo"
+}

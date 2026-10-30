@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "providers": {
+    "avatar": {
+      "kind": "fastapi",
+      "base_url": "http://127.0.0.1:9901",
+      "streaming": false,
+      "timeout_ms": 2000
+    }
+  }
+}

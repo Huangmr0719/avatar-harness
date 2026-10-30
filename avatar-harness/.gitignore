@@ -1,0 +1,15 @@
+.venv/
+.DS_Store
+.cache/
+.avatar-harness/
+.env
+*.env
+__pycache__/
+*.pyc
+.pytest_cache/
+web/node_modules/
+web/dist/
+web/public/vendor/ort/
+upstream/
+bin/
+

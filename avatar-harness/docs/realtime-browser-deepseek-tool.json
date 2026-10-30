@@ -1,0 +1,18 @@
+{
+  "source": "browser_synthetic_speech",
+  "metric": "speech_end_to_audio_context_playback",
+  "partial_before_speech_end": true,
+  "transcript": "现在北京时间几点？请直接说时间。",
+  "answer_prefix": "现在是北京时间19点44分，星期四。",
+  "first_audio_packet_ms": 6799,
+  "audio_context_playback_ms": 6847,
+  "endpoint_wait_ms": 401,
+  "asr_after_commit_ms": 255,
+  "first_text_after_asr_ms": 5121,
+  "first_text_committed": true,
+  "tts_queue_after_text_ms": 544,
+  "tts_first_packet_ms": 478,
+  "audio_within_budget": false,
+  "physical_microphone_used": false,
+  "avatar_sync_verified": false
+}

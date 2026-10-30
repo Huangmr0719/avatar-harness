@@ -1,0 +1,228 @@
+{
+  "date": "2026-10-30",
+  "scope": "isolated real Bailian services and Mac headless Chromium; synthetic microphone only",
+  "tts": {
+    "model": "qwen-audio-3.1-tts-flash",
+    "voice": "longanhuan_v3.1",
+    "sample_rate": 24000
+  },
+  "seven_emotion_synthesis": [
+    {
+      "style": "neutral",
+      "status": "ok",
+      "error": null,
+      "bytes": 113760,
+      "elapsed_ms": 556,
+      "sample_rate": 24000,
+      "sha256": "bb4bb1dd6d0077edac499eda20e50374afda9c734ffc8f7d82077ba82157c9f2"
+    },
+    {
+      "style": "happy",
+      "status": "ok",
+      "error": null,
+      "bytes": 109920,
+      "elapsed_ms": 1236,
+      "sample_rate": 24000,
+      "sha256": "f7b2da25d656623691f4d0e31f74db02f1f94beedb5def33d9dd4994c93a7738"
+    },
+    {
+      "style": "sad",
+      "status": "ok",
+      "error": null,
+      "bytes": 136800,
+      "elapsed_ms": 554,
+      "sample_rate": 24000,
+      "sha256": "5c5b5a049dd224f63b4adbd6f8580299b9bf40c6647b30a62dda0cdebd8d1ced"
+    },
+    {
+      "style": "angry",
+      "status": "ok",
+      "error": null,
+      "bytes": 129120,
+      "elapsed_ms": 1135,
+      "sample_rate": 24000,
+      "sha256": "46805de894dad13696efe8276aa487ef4727200645ef8e2b315b99f6b073cb87"
+    },
+    {
+      "style": "fearful",
+      "status": "ok",
+      "error": null,
+      "bytes": 121440,
+      "elapsed_ms": 862,
+      "sample_rate": 24000,
+      "sha256": "258625eb5f8b8b75b6f01318f5254bb516ec0b156d36e60ddd0150bb10634db2"
+    },
+    {
+      "style": "surprised",
+      "status": "ok",
+      "error": null,
+      "bytes": 129120,
+      "elapsed_ms": 901,
+      "sample_rate": 24000,
+      "sha256": "d89e96f08f3de30bc67e6017da70e4d061c643d4381d8f0412be79e7053d45b7"
+    },
+    {
+      "style": "disgusted",
+      "status": "ok",
+      "error": null,
+      "bytes": 125280,
+      "elapsed_ms": 1205,
+      "sample_rate": 24000,
+      "sha256": "f0513544e792bb64e215867ba7e4dad590fd3dcd079d106ebfa554535f074b6a"
+    }
+  ],
+  "browser_voice": {
+    "metrics": {
+      "total": "2562 ms",
+      "avatar": "368 ms",
+      "tts": "465 ms",
+      "llm": "923 ms"
+    },
+    "reports": [
+      {
+        "turn_id": "ee444902e2fe6f2984e7b601",
+        "elapsed_ms": 2561.7000000476837,
+        "modality": "audio",
+        "meaningful": true,
+        "playback_observed": true
+      },
+      {
+        "turn_id": "ee444902e2fe6f2984e7b601",
+        "elapsed_ms": 2571.5999999046326,
+        "modality": "audio_video",
+        "meaningful": true,
+        "av_skew_ms": -22.33333333333333
+      }
+    ],
+    "errors": []
+  },
+  "automatic_expression": {
+    "results": [
+      {
+        "expected": "happy",
+        "label": "自动 · 快乐",
+        "event": {
+          "duration_ms": 8000,
+          "intensity": 0.9,
+          "source": "llm_structured",
+          "style": "happy"
+        },
+        "llm_calls": 1,
+        "tool_calls": [],
+        "reports": [
+          {
+            "turn_id": "829cf0e7ee06e7a8978885b7",
+            "elapsed_ms": 2579,
+            "modality": "audio",
+            "meaningful": true,
+            "playback_observed": true
+          },
+          {
+            "turn_id": "829cf0e7ee06e7a8978885b7",
+            "elapsed_ms": 2595.5,
+            "modality": "audio_video",
+            "meaningful": true,
+            "av_skew_ms": -7.6000001430511475
+          }
+        ],
+        "tts_emotions": [
+          {
+            "instruction": "请用普通话说话。语气自然欣喜、带笑意，轻快地祝贺或分享喜悦，不要大笑、尖叫或夸张表演。情感可以明显一些，但保持自然克制。",
+            "intensity": 0.9,
+            "segment": 0,
+            "stage": "tts.expression",
+            "style": "happy"
+          },
+          {
+            "instruction": "请用普通话说话。语气自然欣喜、带笑意，轻快地祝贺或分享喜悦，不要大笑、尖叫或夸张表演。情感可以明显一些，但保持自然克制。",
+            "intensity": 0.9,
+            "segment": 1,
+            "stage": "tts.expression",
+            "style": "happy"
+          },
+          {
+            "instruction": "请用普通话说话。语气自然欣喜、带笑意，轻快地祝贺或分享喜悦，不要大笑、尖叫或夸张表演。情感可以明显一些，但保持自然克制。",
+            "intensity": 0.9,
+            "segment": 2,
+            "stage": "tts.expression",
+            "style": "happy"
+          }
+        ],
+        "json_visible": false
+      },
+      {
+        "expected": "sad",
+        "label": "认真",
+        "event": {
+          "duration_ms": 8000,
+          "intensity": 0.5,
+          "source": "llm_structured",
+          "style": "sad"
+        },
+        "llm_calls": 1,
+        "tool_calls": [],
+        "reports": [
+          {
+            "turn_id": "7a9d0f04e41f096feacf6dcb",
+            "elapsed_ms": 1677,
+            "modality": "audio",
+            "meaningful": true,
+            "playback_observed": true
+          },
+          {
+            "turn_id": "7a9d0f04e41f096feacf6dcb",
+            "elapsed_ms": 1689.5,
+            "modality": "audio_video",
+            "meaningful": true,
+            "av_skew_ms": -6.1000001430511475
+          }
+        ],
+        "tts_emotions": [
+          {
+            "instruction": "请用普通话说话。语气低落、柔和，有自然的悲伤与共情，语速稍缓、音调略低，保持清晰，不要夸张哭泣。情感表达适中、克制。",
+            "intensity": 0.5,
+            "segment": 0,
+            "stage": "tts.expression",
+            "style": "sad"
+          },
+          {
+            "instruction": "请用普通话说话。语气低落、柔和，有自然的悲伤与共情，语速稍缓、音调略低，保持清晰，不要夸张哭泣。情感表达适中、克制。",
+            "intensity": 0.5,
+            "segment": 1,
+            "stage": "tts.expression",
+            "style": "sad"
+          }
+        ],
+        "json_visible": false
+      }
+    ],
+    "errors": []
+  },
+  "interrupt": {
+    "time": "2026-10-30T02:53:06.642Z",
+    "source": "synthetic_speech_paced_in_realtime",
+    "metric": "speech_end_to_first_audio_packet_not_playback",
+    "input_text": "请用一句话解释什么是光合作用。",
+    "model": "deepseek-v4.1-flash-1017",
+    "session_id": "6efdb3c601974c1ddcf66d43",
+    "partial_before_endpoint": true,
+    "partial_before_speech_end": true,
+    "first_partial_ms": -2211.4,
+    "final_asr_ms": 766.1,
+    "first_text_ms": 1731.7,
+    "first_audio_packet_ms": 2321.9,
+    "target_ms": 3000,
+    "within_transport_target": true,
+    "playback_verified": false,
+    "avatar_sync_verified": false,
+    "audio_packets_received": 1,
+    "answer": "光合作用是植物利用阳光，把水和二氧化碳变成养分并释放氧气的过程。",
+    "interrupted": true,
+    "cancel_ack_ms": 0.6
+  },
+  "limits": [
+    "Single observations; not P95",
+    "Instruction accepted and audio generated; perceptual emotion quality not scored",
+    "Manual expression override affects face only"
+  ]
+}

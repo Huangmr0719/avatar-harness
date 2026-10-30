@@ -1,0 +1,21 @@
+{
+  "time": "2026-10-29T11:31:27.582Z",
+  "source": "synthetic_speech_paced_in_realtime",
+  "metric": "speech_end_to_first_audio_packet_not_playback",
+  "input_text": "请用一句话解释什么是光合作用。",
+  "model": "qwen3.8-flash",
+  "session_id": "09e9acb06d60272d88e65076",
+  "partial_before_endpoint": true,
+  "first_partial_ms": -2698.6,
+  "final_asr_ms": 623.8,
+  "first_text_ms": 1345.9,
+  "first_audio_packet_ms": 1973.6,
+  "target_ms": 3000,
+  "within_transport_target": true,
+  "playback_verified": false,
+  "avatar_sync_verified": false,
+  "audio_packets_received": 22,
+  "answer": "光合作用是绿色植物利用阳光，把二氧化碳和水转化成有机物并释放氧气的过程。",
+  "interrupted": null,
+  "cancel_ack_ms": null
+}

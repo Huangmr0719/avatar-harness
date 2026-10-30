@@ -1,0 +1,22 @@
+{
+  "time": "2026-10-29T11:32:32.349Z",
+  "source": "synthetic_speech_paced_in_realtime",
+  "metric": "speech_end_to_first_audio_packet_not_playback",
+  "input_text": "现在北京时间几点？请直接说时间。",
+  "model": "qwen3.8-flash",
+  "session_id": "9b4189e613b0575b9e1f5063",
+  "partial_before_endpoint": true,
+  "partial_before_speech_end": true,
+  "first_partial_ms": -2420.6,
+  "final_asr_ms": 663.9,
+  "first_text_ms": 2250.1,
+  "first_audio_packet_ms": 2806.8,
+  "target_ms": 3000,
+  "within_transport_target": true,
+  "playback_verified": false,
+  "avatar_sync_verified": false,
+  "audio_packets_received": 10,
+  "answer": "现在是北京时间晚上7点32分。",
+  "interrupted": null,
+  "cancel_ack_ms": null
+}

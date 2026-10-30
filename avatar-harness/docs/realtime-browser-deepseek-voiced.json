@@ -1,0 +1,19 @@
+{
+  "source": "browser_synthetic_speech",
+  "model": "deepseek-v4.1-flash-1017",
+  "metric": "speech_end_to_voiced_audio_context_playback",
+  "partial_before_speech_end": true,
+  "transcript": "请用一句话解释什么是光合作用。",
+  "answer_prefix": "光合作用是植物利用阳光，把水和二氧化碳转化成氧气和养分的过程。",
+  "first_audio_packet_ms": 1713,
+  "audio_context_playback_ms": 1844,
+  "endpoint_wait_ms": 429,
+  "asr_after_commit_ms": 235,
+  "first_text_after_asr_ms": 689,
+  "first_text_committed": true,
+  "tts_queue_after_text_ms": 0,
+  "tts_first_packet_ms": 360,
+  "audio_within_budget": true,
+  "physical_microphone_used": false,
+  "avatar_sync_verified": false
+}

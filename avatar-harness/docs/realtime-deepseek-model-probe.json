@@ -1,0 +1,14 @@
+[
+  {
+    "model": "deepseek-v4.1-flash-1017",
+    "iteration": 1,
+    "first_text_ms": 647.498,
+    "total_ms": 771.396
+  },
+  {
+    "model": "deepseek-v4.1-flash-1017",
+    "iteration": 2,
+    "first_text_ms": 1051.702,
+    "total_ms": 2041.118
+  }
+]

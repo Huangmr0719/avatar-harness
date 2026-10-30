@@ -1,0 +1,36 @@
+{
+  "transport": {
+    "time": "2026-10-29T13:09:10.571Z",
+    "source": "synthetic_speech_paced_in_realtime",
+    "metric": "speech_end_to_first_audio_packet_not_playback",
+    "input_text": "请用四句简短的话解释光合作用。",
+    "model": "deepseek-v4.1-flash-1017",
+    "session_id": "bfaf9cb7b1724e529ea67e68",
+    "partial_before_endpoint": true,
+    "partial_before_speech_end": true,
+    "first_partial_ms": -2393,
+    "final_asr_ms": 662.2,
+    "first_text_ms": 1217.1,
+    "first_audio_packet_ms": 1668.9,
+    "target_ms": 3000,
+    "within_transport_target": true,
+    "playback_verified": false,
+    "avatar_sync_verified": false,
+    "audio_packets_received": 59,
+    "answer": "光合作用就是植物用阳光把水和二氧化碳变成养分的过程。叶绿素吸收光能，把水分解，释放出氧气。接着用这些能量把二氧化碳合成葡萄糖。简单说，就是光能变成化学能，存进有机物里，同时给我们提供氧气。",
+    "interrupted": null,
+    "cancel_ack_ms": null
+  },
+  "tts_segments": 5,
+  "connection_uses": [
+    {"configure_ms": 56.816, "dial_ms": 120.742, "reused": false, "segment": 0, "stage": "tts.connection", "wait_ms": 0.005},
+    {"configure_ms": 62.016, "dial_ms": 116.441, "reused": false, "segment": 1, "stage": "tts.connection", "wait_ms": 0.002},
+    {"configure_ms": 62.016, "dial_ms": 116.441, "reused": true, "segment": 2, "stage": "tts.connection", "wait_ms": 0.003},
+    {"configure_ms": 56.816, "dial_ms": 120.742, "reused": true, "segment": 3, "stage": "tts.connection", "wait_ms": 0.006},
+    {"configure_ms": 62.016, "dial_ms": 116.441, "reused": true, "segment": 4, "stage": "tts.connection", "wait_ms": 0.004}
+  ],
+  "first_server_audio_before_model_finished": true,
+  "first_server_audio_lead_over_model_finish_ms": 233,
+  "pipeline_errors": [],
+  "physical_devices_accessed": false
+}

@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")/.."
+export GOCACHE="$PWD/.cache/go-build"
+export GOMODCACHE="$PWD/.cache/go-mod"
+export GOPATH="$PWD/.cache/gopath"
+if [ -x .cache/go-sdk/go/bin/go ]; then
+  exec .cache/go-sdk/go/bin/go "$@"
+fi
+exec go "$@"

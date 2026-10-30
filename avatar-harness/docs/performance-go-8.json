@@ -1,0 +1,23 @@
+{
+  "concurrency": 8,
+  "date": "2026-10-29T10:05:02Z",
+  "elapsed_s": 0.243824042,
+  "errors": [],
+  "excludes": "real model inference, ASR, TTS, avatar inference, browser rendering, network-to-cloud latency, and 3-second audiovisual SLO",
+  "go_version": "go1.27.3",
+  "includes": "HTTP input, SSE output, Go scheduling, JSON/schema validation, actual local time tool, buffered journal; tool_loop includes two localhost model-protocol HTTP requests",
+  "latency_ms": {
+    "max": 5.749,
+    "mean": 1.3233170000000003,
+    "p50": 1.078,
+    "p95": 2.699,
+    "p99": 4.24
+  },
+  "logical_cpus": 10,
+  "mode": "tool_loop",
+  "platform": "darwin/arm64",
+  "requests": 1000,
+  "requests_per_second": 4101.318277711104,
+  "runtime": "go",
+  "success": 1000
+}

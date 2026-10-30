@@ -1,0 +1,79 @@
+{
+  "date": "2026-10-30",
+  "character_id": "character-01",
+  "character_name": "LAM · 本地数字人",
+  "voice": "longtian_v3.1",
+  "voice_name": "龙天",
+  "official_traits": [
+    "男",
+    "磁性",
+    "理智"
+  ],
+  "official_source": "https://help.aliyun.com/zh/model-studio/qwen-audio-tts-voice-list",
+  "synthesis": [
+    {
+      "emotion": "neutral",
+      "voice": "longtian_v3.1",
+      "status": "ok",
+      "error": null,
+      "pcm_bytes": 182880,
+      "sample_rate": 24000,
+      "whole_phrase_ms": 781
+    },
+    {
+      "emotion": "happy",
+      "voice": "longtian_v3.1",
+      "status": "ok",
+      "error": null,
+      "pcm_bytes": 182880,
+      "sample_rate": 24000,
+      "whole_phrase_ms": 866
+    },
+    {
+      "emotion": "sad",
+      "voice": "longtian_v3.1",
+      "status": "ok",
+      "error": null,
+      "pcm_bytes": 202080,
+      "sample_rate": 24000,
+      "whole_phrase_ms": 767
+    },
+    {
+      "emotion": "angry",
+      "voice": "longtian_v3.1",
+      "status": "ok",
+      "error": null,
+      "pcm_bytes": 190560,
+      "sample_rate": 24000,
+      "whole_phrase_ms": 822
+    },
+    {
+      "emotion": "fearful",
+      "voice": "longtian_v3.1",
+      "status": "ok",
+      "error": null,
+      "pcm_bytes": 194400,
+      "sample_rate": 24000,
+      "whole_phrase_ms": 705
+    },
+    {
+      "emotion": "surprised",
+      "voice": "longtian_v3.1",
+      "status": "ok",
+      "error": null,
+      "pcm_bytes": 190560,
+      "sample_rate": 24000,
+      "whole_phrase_ms": 948
+    },
+    {
+      "emotion": "disgusted",
+      "voice": "longtian_v3.1",
+      "status": "ok",
+      "error": null,
+      "pcm_bytes": 182880,
+      "sample_rate": 24000,
+      "whole_phrase_ms": 916
+    }
+  ],
+  "scope": "Gender and stated voice characteristics aligned by configuration; actual synthesis verified; perceptual audiovisual matching not scored."
+}
