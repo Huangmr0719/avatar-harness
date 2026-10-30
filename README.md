@@ -4,6 +4,7 @@ Go + Vue/Three.js 的桌面数字人 Harness，支持终端配置 provider、实
 
 - [应用源码与使用说明](avatar-harness/README.md)
 - [本地 LAM、情感控制及验证记录](avatar-harness/docs/lam-local.md)
+- [data2 部署、目录与启停](avatar-harness/docs/data2-deployment.md)
 - [Provider / 外部 FastAPI 接口](avatar-harness/docs/provider-contract.md)
 - [第三方来源与许可](avatar-harness/sources.lock.json)
 

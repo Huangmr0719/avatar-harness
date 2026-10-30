@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Deploy the existing Go service; cloud speech and browser motion stay unchanged.
+set -euo pipefail
+app_dir="$(cd "$(dirname "$0")/.." && pwd)"
+project_dir="$(cd "$app_dir/.." && pwd)"
+remote_host=data2
+remote_root=/data2/huangmr/code/avatar-harness
+with_secrets=false
+check_only=false
+for argument in "$@"; do
+  case "$argument" in
+    --with-secrets) with_secrets=true ;;
+    --check) check_only=true ;;
+    *) echo 'Usage: scripts/deploy-data2 [--check] [--with-secrets]' >&2; exit 2 ;;
+  esac
+done
+
+# Check before creating directories, transferring credentials, or installing.
+ssh -o BatchMode=yes -o ConnectTimeout=12 "$remote_host" 'python3 -' <<'PY'
+import os, sys
+root = '/data2/huangmr/code'
+v = os.statvfs(root)
+available = v.f_bavail * v.f_frsize
+print('data2 available bytes:', available)
+if available < 1024 ** 3:
+    sys.exit('Deployment needs at least 1 GiB available under /data2/huangmr/code. No installation was attempted.')
+for executable in ('bash', 'rsync', 'tmux', 'curl'):
+    import shutil
+    if not shutil.which(executable):
+        sys.exit('Missing remote command: ' + executable)
+PY
+if [[ "$check_only" == true ]]; then echo 'data2 passed the deployment preflight.'; exit 0; fi
+
+if [[ "$with_secrets" == true && ! -f "$app_dir/.avatar-harness/secrets.env" ]]; then
+  echo 'Local secrets.env does not exist; no credentials were transferred.' >&2
+  exit 1
+fi
+if [[ ! -f "$app_dir/web/dist/index.html" ]]; then
+  echo 'Build the frontend first: cd web && npm ci && npm run build' >&2
+  exit 1
+fi
+mkdir -p "$app_dir/.cache/deploy/data2"
+cd "$app_dir"
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 ./scripts/go build -trimpath -ldflags='-s -w' \
+  -o .cache/deploy/data2/avatar-harness-linux-amd64 ./cmd/avatar-harness
+
+# Respect the repository ignore rules. LFS files transfer as real working files.
+git -C "$project_dir" ls-files --cached --others --exclude-standard -z > .cache/deploy/data2/files.list
+ssh "$remote_host" "umask 077; mkdir -p '$remote_root/source' '$remote_root/bin' '$remote_root/runtime/state' '$remote_root/runtime/logs' '$remote_root/runtime/cache' '$remote_root/runtime/tmp'"
+rsync -a --from0 --files-from="$app_dir/.cache/deploy/data2/files.list" \
+  "$project_dir/" "$remote_host:$remote_root/source/"
+rsync -a .cache/deploy/data2/avatar-harness-linux-amd64 "$remote_host:$remote_root/bin/avatar-harness"
+ssh "$remote_host" "test -f '$remote_root/runtime/state/config.json' || install -m 600 '$remote_root/source/avatar-harness/configs/lam-bailian.example.json' '$remote_root/runtime/state/config.json'"
+if [[ "$with_secrets" == true ]]; then
+  # Never put a credential in the source tree, a command argument, or stdout.
+  ssh "$remote_host" "umask 077; cat > '$remote_root/runtime/state/secrets.env.new'; chmod 600 '$remote_root/runtime/state/secrets.env.new'; mv '$remote_root/runtime/state/secrets.env.new' '$remote_root/runtime/state/secrets.env'" \
+    < "$app_dir/.avatar-harness/secrets.env"
+fi
+ssh "$remote_host" "bash '$remote_root/source/avatar-harness/scripts/data2-runtime' restart"
+ssh "$remote_host" "bash '$remote_root/source/avatar-harness/scripts/data2-runtime' status"
+echo 'Open a separate terminal: ssh -N -L 18765:127.0.0.1:8765 data2'
+echo 'Then open http://127.0.0.1:18765/ on the Mac.'

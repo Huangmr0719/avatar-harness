@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+service_root=/data2/huangmr/code/avatar-harness
+config_path="$service_root/runtime/state/config.json"
+socket_path="$service_root/runtime/tmp/tmux.sock"
+session_name=avatar-harness
+export XDG_CACHE_HOME="$service_root/runtime/cache"
+export XDG_STATE_HOME="$service_root/runtime/state"
+export TMPDIR="$service_root/runtime/tmp"
+export UV_CACHE_DIR="$service_root/runtime/cache/uv"
+export HF_HOME="$service_root/runtime/cache/huggingface"
+export TORCH_HOME="$service_root/runtime/cache/torch"
+export NUMBA_CACHE_DIR="$service_root/runtime/cache/numba"
+export CUDA_CACHE_PATH="$service_root/runtime/cache/cuda"
+export PYTHONPYCACHEPREFIX="$service_root/runtime/cache/pycache"
+export PYTHONUSERBASE="$service_root/runtime/python-user"
+export PIP_CACHE_DIR="$service_root/runtime/cache/pip"
+export MPLCONFIGDIR="$service_root/runtime/cache/matplotlib"
+export TOKENIZERS_PARALLELISM=false
+export PYTHONDONTWRITEBYTECODE=1
+
+stop_service() {
+  "$service_root/bin/avatar-harness" --config "$config_path" stop
+  tmux -S "$socket_path" kill-session -t "$session_name" 2>/dev/null || true
+}
+start_service() {
+  if tmux -S "$socket_path" has-session -t "$session_name" 2>/dev/null; then
+    echo 'avatar-harness is already running.'
+    return
+  fi
+  tmux -S "$socket_path" -f /dev/null new-session -d -s "$session_name" \
+    -c "$service_root/source/avatar-harness" \
+    "bash '$service_root/source/avatar-harness/scripts/data2-runtime' run"
+  for _ in {1..30}; do
+    if curl --noproxy '*' -fsS --max-time 1 http://127.0.0.1:8765/api/health >/dev/null; then
+      echo 'avatar-harness is healthy on 127.0.0.1:8765.'
+      return
+    fi
+    sleep 1
+  done
+  echo "Startup failed. Inspect $service_root/runtime/logs/harness.log" >&2
+  return 1
+}
+case "${1:-status}" in
+  run)
+    exec "$service_root/bin/avatar-harness" --config "$config_path" serve --no-open \
+      --host 127.0.0.1 --port 8765 >> "$service_root/runtime/logs/harness.log" 2>&1
+    ;;
+  start) start_service ;;
+  stop) stop_service ;;
+  restart) stop_service; start_service ;;
+  status) curl --noproxy '*' -fsS --max-time 3 http://127.0.0.1:8765/api/health; echo ;;
+  *) echo 'Usage: data2-runtime start|stop|restart|status' >&2; exit 2 ;;
+esac
