@@ -142,7 +142,7 @@ func audioTTSEvent(conn *websocket.Conn, id string) (int, []byte, map[string]any
 		return 0, nil, nil, fmt.Errorf("百炼 TTS 返回了不匹配的 task_id")
 	}
 	if header["event"] == "task-failed" {
-		return 0, nil, nil, fmt.Errorf("百炼情感 TTS 错误 %s：%s", String(header["error_code"]), String(header["error_message"]))
+		return 0, nil, nil, &audioTTSError{String(header["error_code"]), String(header["error_message"])}
 	}
 	return kind, nil, header, nil
 }

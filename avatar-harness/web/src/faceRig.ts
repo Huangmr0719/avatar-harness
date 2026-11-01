@@ -24,7 +24,14 @@ export const FACE_REGIONS = [
   ] },
 ] as const
 
-export interface FaceRigSnapshot { supported: string[]; weights: Record<string, number> }
+export const HEAD_AXES = [
+  { id: 'pitch', label: '俯仰 / 点头', min: -12, max: 12 },
+  { id: 'yaw', label: '左右转头', min: -20, max: 20 },
+  { id: 'roll', label: '左右侧倾', min: -8, max: 8 },
+] as const
+export type HeadAxis = typeof HEAD_AXES[number]['id']
+export type HeadOverrides = Partial<Record<HeadAxis, number>>
+export interface FaceRigSnapshot { supported: string[]; weights: Record<string, number>; headSupported?: boolean; headPose?: HeadOverrides }
 export const BROW_ACTIONS: Record<string, Record<string, number>> = {
   raise: { browInnerUp: .9, browOuterUpLeft: 1, browOuterUpRight: 1, browDownLeft: 0, browDownRight: 0 },
   inner: { browInnerUp: 1, browOuterUpLeft: 0, browOuterUpRight: 0, browDownLeft: 0, browDownRight: 0 },

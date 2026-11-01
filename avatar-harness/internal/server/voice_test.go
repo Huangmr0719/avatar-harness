@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -178,5 +179,69 @@ func TestHTTPStopAcknowledgesActiveRecognition(t *testing.T) {
 	result := request(t, a, "POST", "/api/sessions/"+sid+"/stop", nil)
 	if result.Code != 200 || !strings.Contains(result.Body.String(), `"stopped":true`) {
 		t.Fatal("HTTP stop did not acknowledge cancelled ASR", result.Body.String())
+	}
+}
+
+func TestVoiceUsesFacesDuringSpeechNotWhileAwaitingASR(t *testing.T) {
+	hold := make(chan struct{})
+	a, conn, sid := liveFixture(t, hold)
+	received := make(chan []map[string]any, 1)
+	a.Runtime.Bus.Register("live-test-llm", func(ctx context.Context, req provider.Request, emit provider.Emit) (provider.Result, error) {
+		received <- req.Input["messages"].([]map[string]any)
+		_ = emit(map[string]any{"type": "text", "text": "<speak/>收到。"})
+		return provider.OK(nil), emit(map[string]any{"type": "done", "tool_calls": []any{}})
+	})
+	token := a.Runtime.BeginPerception(sid)
+	face := func(label string) map[string]any {
+		scores := map[string]any{}
+		for _, k := range []string{"neutral", "happy", "sad", "angry", "fearful", "surprised", "disgusted", "contempt"} {
+			scores[k] = .1 / 7
+		}
+		scores[label] = .9
+		return map[string]any{"face_detected": true, "expression": map[string]any{"label": label, "scores": scores}}
+	}
+	_ = conn.WriteJSON(map[string]any{"type": "start", "input_id": "windowed-input"})
+	_ = conn.WriteMessage(websocket.BinaryMessage, make([]byte, 3200))
+	awaitVoice(t, conn, "transcript")
+	if !a.Runtime.ObserveFace(sid, token, 1, time.Now(), face("happy")) || !a.Runtime.ObserveFace(sid, token, 2, time.Now(), face("happy")) {
+		t.Fatal("speech observations rejected")
+	}
+	_ = conn.WriteJSON(map[string]any{"type": "commit", "input_id": "windowed-input", "end_age_ms": 0})
+	deadline := time.Now().Add(time.Second)
+	committed := false
+	for time.Now().Before(deadline) {
+		a.voiceMu.Lock()
+		v := a.voices[sid]
+		a.voiceMu.Unlock()
+		v.mu.Lock()
+		committed = v.input.committed
+		v.mu.Unlock()
+		if committed {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if !committed {
+		t.Fatal("commit not received")
+	}
+	a.Runtime.ObserveFace(sid, token, 3, time.Now(), face("angry"))
+	close(hold)
+	awaitVoice(t, conn, "turn")
+	select {
+	case messages := <-received:
+		var observation map[string]any
+		if err := json.Unmarshal([]byte(provider.String(messages[len(messages)-2]["content"])), &observation); err != nil {
+			t.Fatal(err)
+		}
+		signals := observation["signals"].(map[string]any)
+		summary := signals["face"].(map[string]any)
+		if summary["sample_count"] != float64(2) || summary["dominant_label"] != "happy" {
+			t.Fatal("waiting expression leaked into speech", summary)
+		}
+		if provider.String(messages[len(messages)-1]["content"]) != "实时语音测试。" {
+			t.Fatal("perception displaced user speech")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("LLM did not receive perception")
 	}
 }

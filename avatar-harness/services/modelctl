@@ -7,7 +7,8 @@ case "$name" in
  lam-driver) port=18766; path=/health ;;
  lam-creator) port=18767; path=/config ;;
  lhm-creator) port=18768; path=/config ;;
- *) echo 'Service must be lam-driver, lam-creator or lhm-creator' >&2; exit 2 ;;
+ libreface) port=18769; path=/health ;;
+ *) echo 'Service must be lam-driver, lam-creator, lhm-creator or libreface' >&2; exit 2 ;;
 esac
 socket="$service_root/runtime/tmp/tmux.sock"
 case "$action" in

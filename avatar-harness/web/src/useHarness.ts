@@ -1,4 +1,4 @@
-import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { AudioPlayer } from './audio'
 import { SpeechBatcher } from './lamSpeech'
 import { VoiceInput, deviceError } from './voice'
@@ -6,7 +6,10 @@ import { RealtimeVoice } from './realtimeVoice'
 import { ExpressionControl, type ExpressionState, type ExpressionMode } from './expressionControl'
 import { EmotionDemo, demoRunning, type DemoState } from './emotionDemo'
 import { LatencyTracker, type LatencyState } from './latency'
-import { FaceRigControl, type FaceRigSnapshot } from './faceRig'
+import { FaceRigControl, HEAD_AXES, type HeadOverrides, type FaceRigSnapshot } from './faceRig'
+import { FaceAnalysis, type FaceObservation } from './faceAnalysis'
+import { appendErrorEntry } from './eventErrors'
+import { PracticeClock, newerSupport, type SupportCommand, type SupportState } from './intervention'
 import type { AudioSegment, Entry, HarnessEvent, MotionFrame, Renderer, Session, State } from './types'
 
 export async function api<T>(path: string, options?: RequestInit): Promise<T> {
@@ -14,33 +17,129 @@ export async function api<T>(path: string, options?: RequestInit): Promise<T> {
   if (!response.ok) { const error = await response.json().catch(() => ({})); throw new Error(typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}`) }
   return response.json()
 }
-export interface MediaHooks { clearMotion?: () => void; comparison?: (active: boolean) => void; prepare?: (buffer: AudioBuffer, pts: number) => Promise<{ elapsed_ms: number } | undefined>; frames: (frames: MotionFrame[], base: number) => void; audio: (segment: AudioSegment) => void; probe: () => { at_ms: number; audio_pts_ms: number; frame_pts_ms: number } | null; faceState?: () => FaceRigSnapshot | null; overrideFace?: (values: Record<string, number>) => void }
+export interface MediaHooks { clearMotion?: () => void; comparison?: (active: boolean) => void; prepare?: (buffer: AudioBuffer, pts: number) => Promise<{ elapsed_ms: number } | undefined>; frames: (frames: MotionFrame[], base: number) => void; audio: (segment: AudioSegment) => void; probe: () => { at_ms: number; audio_pts_ms: number; frame_pts_ms: number } | null; faceState?: () => FaceRigSnapshot | null; overrideFace?: (values: Record<string, number>) => void; overrideHead?: (values: HeadOverrides) => void }
 
 export function useHarness(options: { diagnostics?: boolean } = {}) {
   const state = ref<State | null>(null), sessions = ref<Session[]>([]), selected = ref<Session | null>(null)
   const entries = ref<Entry[]>([]), connected = ref(false), busy = ref(false), playing = ref(false), error = ref('')
+  const support = ref<SupportState>({ version: 0 }), supportPending = ref(false), practicePlaying = ref(false), practiceProgress = ref(0)
+  let supportVideo: HTMLVideoElement | null = null, practiceTimer: ReturnType<typeof setInterval> | undefined, practiceClock: PracticeClock | null = null, practiceID = ''
+  let supportQueue: Promise<unknown> = Promise.resolve()
+  function supportCommand(command: SupportCommand): Promise<void> {
+    const sid = selected.value?.id
+    const generation = selectionGeneration
+    const job = supportQueue.catch(() => {}).then(async () => {
+      if (!sid || selected.value?.id !== sid || generation !== selectionGeneration) return
+      supportPending.value = true
+      try {
+        const value = await api<SupportState>(`/api/sessions/${sid}/intervention`, { method: 'POST', body: JSON.stringify({ ...command, version: support.value.version }) })
+        if (selected.value?.id === sid && generation === selectionGeneration) support.value = newerSupport(support.value, value)
+      } catch (exc) {
+        if (selected.value?.id === sid && generation === selectionGeneration) {
+          notice(String(exc), 'error')
+          const value = await api<SupportState>(`/api/sessions/${sid}/intervention`).catch(() => null)
+          if (value && selected.value?.id === sid && generation === selectionGeneration) support.value = newerSupport(support.value, value)
+        }
+      } finally { if (generation === selectionGeneration) supportPending.value = false }
+    })
+    supportQueue = job
+    return job
+  }
+  function stopPractice(report = true) {
+    clearInterval(practiceTimer); practiceTimer = undefined
+    supportVideo?.pause()
+    const id = practiceID, played = Math.round(practiceClock?.elapsed || practiceProgress.value)
+    practicePlaying.value = false; practiceID = ''; practiceClock = null
+    if (report && id) void supportCommand({ operation: 'playback', execution_id: id, event: 'stopped', played_ms: played })
+  }
+  async function playPractice() {
+    const execution = support.value.execution, video = supportVideo
+    if (!execution || execution.kind !== 'video' || execution.status !== 'queued' || !video) return
+    const sid = selected.value?.id, generation = selectionGeneration
+    stopPractice(false)
+    video.currentTime = 0; video.playbackRate = execution.parameters.playback_rate
+    try {
+      await video.play()
+      if (selected.value?.id !== sid || generation !== selectionGeneration || support.value.execution?.id !== execution.id) { video.pause(); return }
+      practiceID = execution.id; practiceClock = new PracticeClock(); practiceProgress.value = 0; practicePlaying.value = true
+      await supportCommand({ operation: 'playback', execution_id: execution.id, event: 'playing', played_ms: 0 })
+      if (support.value.execution?.id !== execution.id || support.value.execution.status !== 'playing' || !practicePlaying.value) { stopPractice(false); return }
+      practiceTimer = setInterval(() => {
+        if (!practiceClock || practiceID !== execution.id || selected.value?.id !== sid) { stopPractice(false); return }
+        practiceProgress.value = Math.min(execution.parameters.duration_seconds * 1000, practiceClock.update(performance.now(), video.currentTime, !video.paused && video.readyState >= 2, document.visibilityState === 'visible'))
+        if (practiceProgress.value >= execution.parameters.duration_seconds * 1000) {
+          const played = Math.round(practiceProgress.value)
+          stopPractice(false)
+          void supportCommand({ operation: 'playback', execution_id: execution.id, event: 'completed', played_ms: played })
+        }
+      }, 100)
+    } catch (exc) { stopPractice(false); notice(`练习视频暂时无法播放：${String(exc)}`, 'error') }
+  }
+  async function changeSupport(command: SupportCommand) {
+    stopPractice()
+    await supportQueue.catch(() => {})
+    if (['start', 'stop', 'parameters', 'feedback'].includes(command.operation)) { cutPlayback(); await stop() }
+    await supportCommand(command)
+  }
+  watch(() => support.value.execution?.status, status => { if (practicePlaying.value && status !== 'playing') stopPractice(false) })
   const duration = ref<number | null>(null), activeTurn = ref<string | null>(null)
   const moduleStates = ref<Record<string, { state: string; message?: string }>>({})
   const renderer = shallowRef<Renderer>({ kind: 'none' }), renderState = ref('none'), renderError = ref('')
   const cameraStream = shallowRef<MediaStream | null>(null), cameraState = ref('off'), micState = ref('off'), micLevel = ref(0)
+  const cameraVideo = shallowRef<HTMLVideoElement | null>(null), analysisState = ref('off'), faceObservation = shallowRef<FaceObservation | null>(null), voiceEmotion = ref('')
+  const faceAnalysis = new FaceAnalysis((value, observation, message) => {
+    analysisState.value = value; faceObservation.value = observation ?? null
+    if (message) notice(`摄像头分析：${message}`, 'error')
+  })
+  async function toggleAnalysis() {
+    if (analysisState.value === 'on' || analysisState.value === 'connecting') { faceAnalysis.stop(); return }
+    if (!selected.value || cameraState.value !== 'on') return
+    const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 360
+    const context = canvas.getContext('2d')!
+    let lastCameraTime = -1
+    await faceAnalysis.start(selected.value.id, async () => {
+      const video = cameraVideo.value
+      if (!video?.videoWidth || video.readyState < 2 || video.currentTime === lastCameraTime) return null
+      lastCameraTime = video.currentTime
+      // Preserve the camera aspect ratio; the preview's CSS mirroring is local.
+      canvas.height = Math.round(640 * video.videoHeight / video.videoWidth)
+      context.drawImage(video, 0, 0, canvas.width, canvas.height)
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', .8))
+      if (!blob) return null
+      const bytes = new Uint8Array(await blob.arrayBuffer())
+      return btoa(Array.from(bytes, b => String.fromCharCode(b)).join(''))
+    })
+  }
   const feedback = ref<{ audio_ms?: number; av_ms?: number; origin?: string }>({})
   const liveTranscript = ref(''), voiceConnectionState = ref('off')
+  const userSpeaking = ref(false)
   const character = computed(() => state.value?.characters.find(item => item.id === selected.value?.character_id))
   const mediaHooks = shallowRef<MediaHooks | null>(null)
   const facePanelOpen = ref(false), faceSupported = ref<string[]>([]), faceLive = ref<Record<string, number>>({}), faceOverrides = ref<Record<string, number>>({})
+  const headSupported = ref(false), headLive = ref<HeadOverrides>({}), headOverrides = ref<HeadOverrides>({})
   const faceRig = new FaceRigControl()
   let facePoll: ReturnType<typeof setInterval> | undefined
   function refreshFace() {
     const current = mediaHooks.value?.faceState?.()
     if (!current) return
     faceSupported.value = current.supported; faceLive.value = current.weights
+    headSupported.value = !!current.headSupported; headLive.value = current.headPose ?? {}
     faceRig.setSupported(current.supported)
   }
   function applyFaceOverrides() {
     faceOverrides.value = faceRig.overrides
     mediaHooks.value?.overrideFace?.(faceOverrides.value)
   }
-  function resetFace(region?: string) { faceRig.reset(region); applyFaceOverrides() }
+  function resetFace(region?: string) {
+    if (region !== 'head') { faceRig.reset(region); applyFaceOverrides() }
+    if (!region || region === 'head') { headOverrides.value = {}; mediaHooks.value?.overrideHead?.({}) }
+  }
+  function setHeadAxis(name: string, value: number) {
+    const axis = HEAD_AXES.find(axis => axis.id === name)
+    if (!headSupported.value || !axis || !Number.isFinite(value) || value < axis.min || value > axis.max) return
+    headOverrides.value = { ...headOverrides.value, [name]: value }
+    mediaHooks.value?.overrideHead?.(headOverrides.value)
+  }
   function setFaceChannel(name: string, value: number) { refreshFace(); if (faceRig.set(name, value)) applyFaceOverrides() }
   function previewBrow(action: string) { refreshFace(); if (faceRig.browAction(action)) applyFaceOverrides() }
   function closeFacePanel() { clearInterval(facePoll); facePoll = undefined; facePanelOpen.value = false; resetFace() }
@@ -53,12 +152,14 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
   const expressionControl = new ExpressionControl(value => { expressionState.value = value })
   const demo = ref<DemoState>({ phase: 'idle', index: -1 })
   const demoActive = computed(() => demoRunning(demo.value))
+  const listening = computed(() => micState.value === 'on' && !playing.value && !demoActive.value)
   let previousDemoMode: ExpressionMode = 'auto'
   let demoFacePoll: ReturnType<typeof setInterval> | undefined
   const latency = ref<LatencyState>({})
   const latencyTracker = new LatencyTracker(value => { latency.value = value })
   let stream: EventSource | null = null, lastSeq = 0, selectionGeneration = 0, cameraGeneration = 0, micGeneration = 0
   let pendingOrigin = performance.now(), pendingVoice = 0, turnOrigin = 0, turnSource = 'text', reported = false
+  let avatarWarningTurn: string | null | undefined
   let asrAbort: AbortController | null = null
   let voiceInputID = '', speechPending = false
   const voiceOrigins = new Map<string, number>(), blockedTurns = new Set<string>()
@@ -95,6 +196,10 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
     const turn = activeTurn.value
     const timing = await mediaHooks.value?.prepare?.(buffer, pts)
     if (turn === activeTurn.value && timing) latencyTracker.record(turn, 'avatar_ms', timing.elapsed_ms)
+  }, () => {
+    if (avatarWarningTurn === activeTurn.value) return
+    avatarWarningTurn = activeTurn.value
+    notice('口型连接中断，语音继续播放。连接恢复后可点击“重连口型”。', 'warning')
   })
   const speechBatcher = new SpeechBatcher(packet => { void audio.play(packet).catch(exc => notice(`语音驱动：${String(exc)}`, 'error')) })
 
@@ -139,6 +244,8 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
   }
   function closeEmotionDemo() { emotionDemo.cancel(); demo.value = { phase: 'idle', index: -1 } }
   function cutPlayback() {
+    stopPractice()
+    userSpeaking.value = false
     emotionDemo.cancel()
     mediaHooks.value?.clearMotion?.()
     latencyTracker.cancel()
@@ -152,11 +259,13 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
     transcript: event => {
       if (event.input_id !== voiceInputID) return
       liveTranscript.value = event.text
+      if (event.final) voiceEmotion.value = event.emotion || ''
       moduleStates.value.asr = { state: event.final ? 'configured' : 'running' }
     },
     state: (value, message) => {
       voiceConnectionState.value = value
       if (value === 'error') {
+        userSpeaking.value = false
         micGeneration++; micState.value = 'error'; speechPending = false; voiceInputID = ''; liveTranscript.value = ''
         moduleStates.value.asr = { state: 'error', message }; void voice.stop(); notice(message || '实时识别已断开。', 'error')
       } else moduleStates.value.asr = { state: value === 'streaming' || value === 'recognizing' || speechPending ? 'running' : 'configured' }
@@ -191,8 +300,15 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
         const entry = entries.value.find(item => item.id === `assistant-${turnId}`)
         if (entry) Object.assign(entry, { text: data.text, draft: false, source: data.source })
         else entries.value.push({ id: `assistant-${turnId}`, at, kind: 'assistant', text: data.text, source: data.source, turn_id: turnId })
+        if (!replay && data.execution_id) {
+          const sid = selected.value?.id, generation = selectionGeneration
+          void nextTick(() => { if (selected.value?.id === sid && generation === selectionGeneration && support.value.execution?.id === data.execution_id) void supportCommand({ operation: 'presented', execution_id: data.execution_id }) })
+        }
         break
       }
+      case 'intervention.state':
+        if (data.state) support.value = newerSupport(support.value, data.state)
+        break
       case 'tool.started': entries.value.push({ id: `tool-${data.call_id}`, at, kind: 'tool', text: '', name: data.name, status: 'running', args: data.arguments, turn_id: turnId }); break
       case 'tool.finished': {
         let entry = entries.value.find(item => item.id === `tool-${data.call_id}`)
@@ -200,14 +316,14 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
         Object.assign(entry, { status: data.status, result: data.error ? { error: data.error, output: data.output } : data.output, elapsed_ms: data.elapsed_ms }); break
       }
       case 'module.status': if (!replay) moduleStates.value[data.module] = { state: data.state, message: data.message }; break
-      case 'turn.error': if (!replay) cutPlayback(); entries.value.push({ id: `error-${event.seq}`, at, kind: 'notice', text: data.message, status: 'error' }); break
-      case 'pipeline.error': entries.value.push({ id: `error-${event.seq}`, at, kind: 'notice', text: data.message, status: 'error' }); break
+      case 'turn.error': if (!replay) cutPlayback(); appendErrorEntry(entries.value, event); break
+      case 'pipeline.error': appendErrorEntry(entries.value, event); break
       case 'deadline.missed': if (!replay) notice('本轮有效语音尚未在 3 秒内起播。', 'timeout'); break
       case 'pipeline.avatar': if (!replay && activeTurn.value === event.turn_id && Array.isArray(data.frames)) mediaHooks.value?.frames(data.frames, data.pts_ms ?? 0); break
       case 'pipeline.expression': if (!replay && activeTurn.value === event.turn_id) expressionControl.apply(event.turn_id, data); break
       case 'pipeline.timing': if (!replay) latencyTracker.timing(event.turn_id, data); break
       case 'pipeline.audio': if (!replay && data.audio_base64 && activeTurn.value === event.turn_id) { if (renderer.value.kind === 'lam') speechBatcher.add(data as any); else void audio.play(data as any).catch(exc => notice(String(exc), 'error')) }; break
-      case 'session.cleared': entries.value = []; duration.value = null; break
+      case 'session.cleared': stopPractice(false); support.value = { version: 0 }; entries.value = []; duration.value = null; break
       case 'turn.cancelled': if (!event.turn_id || activeTurn.value === event.turn_id) { latencyTracker.cancel(); expressionControl.cancel(); speechBatcher.reset(); audio.stop(); busy.value = false; activeTurn.value = null }; break
       case 'turn.finished': if (!replay) speechBatcher.flush(); busy.value = false; duration.value = data.duration_ms; break
     }
@@ -229,18 +345,20 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
   }
   function setRenderStatus(value: string, message = '') { renderState.value = value; renderError.value = message; if (value === 'error') notice(`形象显示失败：${message}`, 'error') }
   async function select(session: Session) {
+    faceAnalysis.stop(); voiceEmotion.value = ''
     closeFacePanel()
     latencyTracker.reset()
     expressionControl.cancel()
     const generation = ++selectionGeneration
     if (selected.value) await stop()
     liveVoice.close(); micGeneration++; await voice.stop(); micState.value = 'off'; voiceConnectionState.value = 'off'; liveTranscript.value = ''
-    stream?.close(); asrAbort?.abort(); speechBatcher.reset(); audio.stop(); selected.value = session; entries.value = []; lastSeq = 0
+    stream?.close(); asrAbort?.abort(); speechBatcher.reset(); audio.stop(); selected.value = session; entries.value = []; lastSeq = 0; support.value = { version: 0 }; practiceProgress.value = 0
     duration.value = null; busy.value = false; connected.value = false; activeTurn.value = null; moduleStates.value = {}; feedback.value = {}
     setRenderer(character.value?.renderer ?? { kind: 'none' })
-    const history = await api<HarnessEvent[]>(`/api/sessions/${session.id}/history`)
+    const [history, currentSupport] = await Promise.all([api<HarnessEvent[]>(`/api/sessions/${session.id}/history`), api<SupportState>(`/api/sessions/${session.id}/intervention`)])
     if (generation !== selectionGeneration) return
     history.forEach(event => handle(event, true)); busy.value = false; activeTurn.value = null
+    support.value = newerSupport(support.value, currentSupport)
     stream = new EventSource(`/api/sessions/${session.id}/events?after=${lastSeq}`)
     stream.onopen = () => { connected.value = true; error.value = '' }
     stream.onerror = () => { connected.value = false }
@@ -271,6 +389,7 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
   }
   async function stop() {
     cutPlayback(); voiceInputID = ''; speechPending = false; liveTranscript.value = ''; voice.discard()
+    await supportQueue.catch(() => {})
     for (const [name, status] of Object.entries(moduleStates.value)) if (status.state === 'running') moduleStates.value[name] = { state: state.value?.providers[name]?.configured ? 'configured' : 'deferred' }
     timers.forEach(timer => clearTimeout(timer)); timers.clear()
     if (liveVoice.connected) await liveVoice.cancel()
@@ -284,22 +403,26 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
   }
   async function toggleCamera() {
     const generation = ++cameraGeneration
-    if (cameraState.value === 'on' || cameraState.value === 'requesting') { cameraStream.value?.getTracks().forEach(track => track.stop()); cameraStream.value = null; cameraState.value = 'off'; return }
+    if (cameraState.value === 'on' || cameraState.value === 'requesting') { faceAnalysis.stop(); cameraStream.value?.getTracks().forEach(track => track.stop()); cameraStream.value = null; cameraState.value = 'off'; return }
     cameraState.value = 'requesting'
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('请使用支持设备访问的 localhost 或 HTTPS 浏览器。')
       const value = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 360 }, facingMode: 'user' }, audio: false })
       if (generation !== cameraGeneration) { value.getTracks().forEach(track => track.stop()); return }
-      cameraStream.value = value; cameraState.value = 'on'; notice('摄像头已开启，仅在本地显示，没有上传画面。')
+      cameraStream.value = value; cameraState.value = 'on'
+      value.getVideoTracks().forEach(track => { track.onended = () => { if (generation === cameraGeneration) { faceAnalysis.stop(); cameraStream.value = null; cameraState.value = 'off' } } })
+      notice('摄像头已开启，仅在本地显示。点击“开启表情分析”后，才会发送画面到 data2。')
     } catch (exc) { if (generation === cameraGeneration) { cameraState.value = 'error'; notice(deviceError(exc, '摄像头'), 'error') } }
   }
   const voice = new VoiceInput(value => { micLevel.value = value }, () => {
     cutPlayback()
+    userSpeaking.value = true
     if (liveVoice.connected) {
       voiceInputID = crypto.randomUUID(); speechPending = true; liveTranscript.value = ''; liveVoice.begin(voiceInputID)
     } else if (selected.value) void api(`/api/sessions/${selected.value.id}/stop`, { method: 'POST' }).catch(exc => notice(String(exc), 'error'))
   }, (input, endedAt) => { void submitVoice(input, endedAt) })
   async function submitVoice(input: Record<string, unknown>, endedAt: number) {
+    userSpeaking.value = false
     if (!selected.value) return
     if (!state.value?.providers.asr.configured) { notice('检测到语音；ASR 尚未配置，音频未上传。请在终端运行 ./start configure asr。'); return }
     const session = selected.value.id
@@ -309,6 +432,7 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
   }
   async function toggleMic() {
     emotionDemo.cancel()
+    userSpeaking.value = false
     const generation = ++micGeneration
     if (micState.value === 'on' || micState.value === 'requesting') { liveVoice.close(); voiceInputID = ''; speechPending = false; liveTranscript.value = ''; await voice.stop(); micState.value = 'off'; voiceConnectionState.value = 'off'; return }
     micState.value = 'requesting'
@@ -318,17 +442,17 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
       if (realtime && selected.value) await liveVoice.connect(selected.value.id)
       if (generation !== micGeneration) return
       await voice.start({ silenceMS: state.value?.limits.voice_silence_ms ?? 400, onsetMS: state.value?.limits.voice_onset_ms ?? 80,
-        onError: exc => { liveVoice.close(); micState.value = 'error'; speechPending = false; notice(String(exc), 'error') },
+        onError: exc => { userSpeaking.value = false; liveVoice.close(); micState.value = 'error'; speechPending = false; notice(String(exc), 'error') },
         sink: realtime ? {
           audio: raw => liveVoice.audio(raw),
-          commit: endedAt => { voiceOrigins.set(voiceInputID, endedAt); pendingVoice = endedAt; if (voiceOrigins.size > 64) voiceOrigins.delete(voiceOrigins.keys().next().value!); liveVoice.commit(endedAt) },
-          discard: () => { voiceInputID = ''; speechPending = false; void liveVoice.cancel().catch(exc => notice(String(exc), 'error')) },
+          commit: endedAt => { userSpeaking.value = false; voiceOrigins.set(voiceInputID, endedAt); pendingVoice = endedAt; if (voiceOrigins.size > 64) voiceOrigins.delete(voiceOrigins.keys().next().value!); liveVoice.commit(endedAt) },
+          discard: () => { userSpeaking.value = false; voiceInputID = ''; speechPending = false; void liveVoice.cancel().catch(exc => notice(String(exc), 'error')) },
         } : undefined,
       })
       if (generation === micGeneration) { micState.value = 'on'; notice(realtime ? '实时识别已连接，可边说边识别；再次开口会打断当前回应。' : state.value?.providers.asr.configured ? '麦克风已开启，使用整句识别接口。' : '麦克风仅做本地检测，ASR 尚未接入。') }
     }
     catch (exc) { liveVoice.close(); if (generation === micGeneration && (exc as Error).name !== 'AbortError') { micState.value = 'error'; notice(deviceError(exc, '麦克风'), 'error') } }
   }
-  onUnmounted(() => { emotionDemo.cancel(); clearInterval(demoFacePoll); clearInterval(facePoll); latencyTracker.cancel(); expressionControl.cancel(); speechBatcher.reset(); liveVoice.close(); stream?.close(); asrAbort?.abort(); audio.stop(); cameraGeneration++; micGeneration++; cameraStream.value?.getTracks().forEach(track => track.stop()); void voice.stop(); timers.forEach(timer => clearTimeout(timer)) })
-  return { demo, demoActive, toggleEmotionDemo, closeEmotionDemo, facePanelOpen, faceSupported, faceLive, faceOverrides, toggleFacePanel, closeFacePanel, resetFace, setFaceChannel, previewBrow, latency, expressionState, setExpressionMode: (mode: string) => { resetFace(); expressionControl.setMode(mode) }, state, sessions, selected, entries, connected, busy, playing, error, duration, activeTurn, character, moduleStates, renderer, renderState, renderError, cameraStream, cameraState, micState, micLevel, liveTranscript, voiceConnectionState, feedback, mediaHooks, init, select, newSession, send, stop, clear, toggleCamera, toggleMic, resolveAvatar, setRenderer, setRenderStatus, notice }
+  onUnmounted(() => { stopPractice(false); if (selected.value) void api(`/api/sessions/${selected.value.id}/stop`, { method: 'POST' }).catch(() => {}); faceAnalysis.stop(); emotionDemo.cancel(); clearInterval(demoFacePoll); clearInterval(facePoll); latencyTracker.cancel(); expressionControl.cancel(); speechBatcher.reset(); liveVoice.close(); stream?.close(); asrAbort?.abort(); audio.stop(); cameraGeneration++; micGeneration++; cameraStream.value?.getTracks().forEach(track => track.stop()); void voice.stop(); timers.forEach(timer => clearTimeout(timer)) })
+  return { support, supportPending, practicePlaying, practiceProgress, changeSupport, playPractice, stopPractice, bindSupportVideo: (value: HTMLVideoElement | null) => { supportVideo = value }, cameraVideo, analysisState, faceObservation, voiceEmotion, toggleAnalysis, demo, demoActive, toggleEmotionDemo, closeEmotionDemo, facePanelOpen, faceSupported, faceLive, faceOverrides, headSupported, headLive, headOverrides, toggleFacePanel, closeFacePanel, resetFace, setFaceChannel, setHeadAxis, previewBrow, listening, userSpeaking, latency, expressionState, setExpressionMode: (mode: string) => { resetFace(); expressionControl.setMode(mode) }, state, sessions, selected, entries, connected, busy, playing, error, duration, activeTurn, character, moduleStates, renderer, renderState, renderError, cameraStream, cameraState, micState, micLevel, liveTranscript, voiceConnectionState, feedback, mediaHooks, init, select, newSession, send, stop, clear, toggleCamera, toggleMic, resolveAvatar, setRenderer, setRenderStatus, notice }
 }

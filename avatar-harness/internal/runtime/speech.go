@@ -280,7 +280,7 @@ func (s *Speech) segment() {
 
 func (s *Speech) worker(stream *provider.TTSStream) {
 	defer s.stages.Done()
-	defer stream.Close()
+	defer func() { stream.Close() }()
 	for {
 		select {
 		case <-s.ctx.Done():
@@ -289,11 +289,12 @@ func (s *Speech) worker(stream *provider.TTSStream) {
 			if !ok {
 				return
 			}
-			s.generate(stream, job)
+			stream = s.generate(stream, job)
 		}
 	}
 }
-func (s *Speech) generate(stream *provider.TTSStream, job speechJob) {
+func (s *Speech) generate(stream *provider.TTSStream, job speechJob) (next *provider.TTSStream) {
+	next = stream
 	defer close(job.packets)
 	s.active.Add(1)
 	defer func() {
@@ -321,7 +322,7 @@ func (s *Speech) generate(stream *provider.TTSStream, job speechJob) {
 	if expression := s.expression.Load(); expression != nil {
 		intent["style"], intent["intensity"] = expression.Style, expression.Intensity
 	}
-	err := stream.StreamWithInput(job.text, map[string]any{"expression_intent": intent}, func(e map[string]any) error {
+	emit := func(e map[string]any) error {
 		if status := provider.String(e["status"]); status != "" && status != "ok" {
 			return fmt.Errorf("TTS: %s", provider.String(e["error"]))
 		}
@@ -350,12 +351,35 @@ func (s *Speech) generate(stream *provider.TTSStream, job speechJob) {
 			s.emit("pipeline.timing", map[string]any{"stage": "tts.first_audio", "segment": job.index, "elapsed_ms": float64(time.Since(start).Microseconds()) / 1000})
 		}
 		return send(packet)
-	})
+	}
+	var err error
+	for attempt := 0; ; attempt++ {
+		err = next.StreamWithInput(job.text, map[string]any{"expression_intent": intent}, emit)
+		// A retry is safe only if this segment has emitted no audio. Reopen the
+		// failed lane, retain the same ordered packet channel, and respect stop.
+		if !provider.IsTTSRateLimit(err) || !first || attempt >= 2 || s.ctx.Err() != nil {
+			break
+		}
+		s.emit("pipeline.timing", map[string]any{"stage": "tts.retry", "segment": job.index, "attempt": attempt + 1, "reason": "rate_limited"})
+		timer := time.NewTimer(time.Duration(1<<attempt) * 500 * time.Millisecond)
+		select {
+		case <-s.ctx.Done():
+			timer.Stop()
+			err = s.ctx.Err()
+		case <-timer.C:
+		}
+		if s.ctx.Err() != nil {
+			break
+		}
+		next.Close()
+		next = s.bus.NewTTSStream(s.ctx, map[string]any{"voice": s.character.Voice, "expression_intent": map[string]any{"pad": s.character.PAD}}, s.metadata)
+	}
 	if err != nil && s.ctx.Err() == nil {
 		s.failed.Store(true)
-		_ = send(map[string]any{"error": err.Error()})
+		_ = send(map[string]any{"error": err.Error(), "code": provider.TTSFailureCode(err)})
 		s.emit("module.status", map[string]any{"module": "tts", "state": "error", "message": err.Error()})
 	}
+	return next
 }
 func (s *Speech) dispatch() {
 	defer s.stages.Done()
@@ -387,7 +411,7 @@ func (s *Speech) dispatch() {
 				break
 			}
 			if packet["error"] != nil {
-				s.emit("pipeline.error", map[string]any{"capability": "tts", "message": packet["error"]})
+				s.emit("pipeline.error", map[string]any{"capability": "tts", "code": packet["code"], "message": packet["error"]})
 				continue
 			}
 			duration, err := AudioDuration(packet)

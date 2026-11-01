@@ -159,3 +159,28 @@ test('theatrical eye opening never defeats a full blink',()=>{
   assert.equal(face.eyeSquintLeft,0);assert.equal(face.eyeSquintRight,0)
   assert.ok(face.browInnerUp>1)
 })
+
+test('conversational affect rises with a phrase and relaxes without replacing phonetic motion',()=>{
+  const mixer=new ExpressionMixer();mixer.set('angry',.8)
+  const options={animateAffect:true,speaking:false}
+  const rest=mixer.sample(0,{},0,options)
+  let peak
+  for(let t=16;t<=800;t+=16)peak=mixer.sample(t,{jawOpen:.45,mouthClose:.2},.8,{...options,speaking:true})
+  assert.ok(peak.browDownLeft>rest.browDownLeft+.1)
+  assert.equal(peak.jawOpen,.45);assert.equal(peak.mouthClose,.2)
+  let relaxed
+  for(let t=816;t<=4000;t+=16)relaxed=mixer.sample(t,{},0,options)
+  assert.ok(relaxed.browDownLeft<peak.browDownLeft-.1)
+  assert.ok(relaxed.browDownLeft>.5) // Emotion stays legible in a pause.
+  assert.equal(relaxed.jawOpen,0)
+  const settled=mixer.sample(6000,{},0,options)
+  assert.ok(Math.abs(settled.browDownLeft-relaxed.browDownLeft)<.001)
+})
+
+test('comparison poses remain steady when conversational animation is requested',()=>{
+  const mixer=new ExpressionMixer();mixer.set('surprised',1)
+  const options={animateAffect:true,speechAffect:false}
+  const a=mixer.sample(0,{},0,options),b=mixer.sample(2000,{},1,{...options,speaking:true})
+  assert.deepEqual(a,b)
+  assert.equal(a.browInnerUp,1);assert.equal(a.eyeWideLeft,1)
+})

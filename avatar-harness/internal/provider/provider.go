@@ -37,6 +37,7 @@ type Bus struct {
 	mu       sync.RWMutex
 	internal map[string]Internal
 	schemas  map[string]*jsonschema.Schema
+	ttsPacer ttsRequestPacer
 }
 
 func New(c *config.Config, client *http.Client) (*Bus, error) {
@@ -345,7 +346,19 @@ func readEvents(reader io.Reader, emit Emit) error {
 	}
 	return scanner.Err()
 }
+
+// LLMOptions apply to one request only; parallel internal checks must not
+// mutate the configured parameters used by the main conversation.
+type LLMOptions struct {
+	DisableThinking bool
+	MaxTokens       int
+}
+
 func (b *Bus) LLM(ctx context.Context, input, metadata map[string]any, emit Emit) error {
+	return b.LLMWithOptions(ctx, input, metadata, LLMOptions{}, emit)
+}
+
+func (b *Bus) LLMWithOptions(ctx context.Context, input, metadata map[string]any, options LLMOptions, emit Emit) error {
 	p := b.Config.Providers["llm"]
 	if config.State(p)["configured"] != true {
 		return fmt.Errorf("LLM 尚未配置，请在终端运行 ./start configure llm")
@@ -384,6 +397,20 @@ func (b *Bus) LLM(ctx context.Context, input, metadata map[string]any, emit Emit
 	body := map[string]any{}
 	for k, v := range p.Parameters {
 		body[k] = v
+	}
+	if options.DisableThinking {
+		// Only override providers that explicitly configure this extension.
+		if _, configured := body["enable_thinking"]; configured {
+			body["enable_thinking"] = false
+			delete(body, "reasoning_effort")
+		}
+	}
+	if options.MaxTokens > 0 {
+		limit := options.MaxTokens
+		if configured := int(Number(body["max_tokens"])); configured > 0 {
+			limit = min(limit, configured)
+		}
+		body["max_tokens"] = limit
 	}
 	body["model"] = p.Model
 	body["messages"] = input["messages"]
@@ -454,6 +481,18 @@ func (b *Bus) LLM(ctx context.Context, input, metadata map[string]any, emit Emit
 		}
 	}
 	return emit(map[string]any{"type": "done", "tool_calls": output})
+}
+
+// Perceive is an optional external service, separate from mandatory voice roles.
+func (b *Bus) Perceive(ctx context.Context, input, metadata map[string]any) Result {
+	if b.Config.Perception == nil {
+		return Fail("deferred", fmt.Errorf("摄像头分析尚未配置"))
+	}
+	var result Result
+	if err := b.call(ctx, "perception", *b.Config.Perception, input, metadata, nil, &result); err != nil {
+		return Fail("error", err)
+	}
+	return result
 }
 func String(v any) string { s, _ := v.(string); return s }
 func Number(v any) float64 {

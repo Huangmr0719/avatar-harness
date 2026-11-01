@@ -10,38 +10,51 @@ import (
 	"time"
 
 	"avatarharness/internal/config"
+	"avatarharness/internal/intervention"
 	"avatarharness/internal/provider"
 	"avatarharness/internal/store"
 )
 
 type Turn struct {
-	ID            string
-	SessionID     string
-	Source        string
-	InputID       string
-	Origin        time.Time
-	Started       time.Time
-	Context       context.Context
-	Cancel        context.CancelFunc
-	Done          chan struct{}
-	Cancelled     bool
-	Finished      bool
-	Playback      bool
-	AudioPlayback bool
-	Metadata      map[string]any
+	ID              string
+	SessionID       string
+	Source          string
+	InputID         string
+	Origin          time.Time
+	Started         time.Time
+	Context         context.Context
+	Cancel          context.CancelFunc
+	Done            chan struct{}
+	Cancelled       bool
+	Finished        bool
+	Playback        bool
+	AudioPlayback   bool
+	Metadata        map[string]any
+	UserSignals     map[string]any
+	Support         *intervention.State
+	approvedHistory *approvedSupportHistory
 }
 type Runtime struct {
-	Config  *config.Config
-	Store   *store.Store
-	Bus     *provider.Bus
-	mu      sync.Mutex
-	current map[string]*Turn
-	turns   map[string]*Turn
-	closed  bool
+	Config     *config.Config
+	Store      *store.Store
+	Bus        *provider.Bus
+	mu         sync.Mutex
+	current    map[string]*Turn
+	turns      map[string]*Turn
+	closed     bool
+	perception map[string]*perceptionSession
+	memoryJobs map[string]*memoryJob
+	comparison *comparisonSettings
 }
 
 func New(c *config.Config, s *store.Store, b *provider.Bus) *Runtime {
-	return &Runtime{Config: c, Store: s, Bus: b, current: map[string]*Turn{}, turns: map[string]*Turn{}}
+	r := &Runtime{Config: c, Store: s, Bus: b, current: map[string]*Turn{}, turns: map[string]*Turn{}, perception: map[string]*perceptionSession{}, memoryJobs: map[string]*memoryJob{}}
+	if s != nil {
+		for _, session := range s.Sessions() {
+			r.interruptSupportLocked(session.ID)
+		}
+	}
+	return r
 }
 func (r *Runtime) Character(id string) (config.Character, bool) {
 	for _, c := range r.Config.Characters {
@@ -52,12 +65,16 @@ func (r *Runtime) Character(id string) (config.Character, bool) {
 	return config.Character{}, false
 }
 func (r *Runtime) Start(sid, text, source string, media bool, inherited []map[string]any) (*Turn, error) {
-	return r.start(sid, text, source, media, inherited, "", time.Time{})
+	return r.start(sid, text, source, media, inherited, "", time.Time{}, nil)
 }
-func (r *Runtime) StartVoice(sid, text, inputID string, endedAt time.Time) (*Turn, error) {
-	return r.start(sid, text, "voice", true, nil, inputID, endedAt)
+func (r *Runtime) StartVoice(sid, text, inputID string, endedAt time.Time, audio ...map[string]any) (*Turn, error) {
+	var signal map[string]any
+	if len(audio) > 0 {
+		signal = audio[0]
+	}
+	return r.start(sid, text, "voice", true, nil, inputID, endedAt, signal)
 }
-func (r *Runtime) start(sid, text, source string, media bool, inherited []map[string]any, inputID string, origin time.Time) (*Turn, error) {
+func (r *Runtime) start(sid, text, source string, media bool, inherited []map[string]any, inputID string, origin time.Time, audio map[string]any) (*Turn, error) {
 	if _, ok := r.Store.Session(sid); !ok {
 		return nil, fmt.Errorf("会话不存在")
 	}
@@ -73,6 +90,7 @@ func (r *Runtime) start(sid, text, source string, media bool, inherited []map[st
 		return nil, fmt.Errorf("运行时已停止")
 	}
 	r.cancelLocked(sid, "被新输入替换")
+	r.interruptSupportLocked(sid)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(r.Config.Limits.MaxTurnMS)*time.Millisecond)
 	started := time.Now()
 	if origin.IsZero() {
@@ -80,6 +98,14 @@ func (r *Runtime) start(sid, text, source string, media bool, inherited []map[st
 	}
 	t := &Turn{ID: store.ID(), SessionID: sid, Source: source, InputID: inputID, Origin: origin, Started: started, Context: ctx, Cancel: cancel, Done: make(chan struct{})}
 	t.Metadata = map[string]any{"session_id": sid, "turn_id": t.ID, "request_id": t.ID, "input_id": inputID}
+	t.UserSignals = r.signalsLocked(sid, audio, started, origin)
+	if r.comparison != nil {
+		t.UserSignals = r.comparison.Signals
+		t.Metadata["comparison_variant"] = r.comparison.Variant
+	}
+	if state := r.Store.Intervention(sid); inherited == nil && state.Active() {
+		t.Support = &state
+	}
 	r.current[sid] = t
 	r.turns[t.ID] = t
 	if len(r.turns) > 1024 {
@@ -99,10 +125,12 @@ func (r *Runtime) start(sid, text, source string, media bool, inherited []map[st
 	return t, nil
 }
 func (r *Runtime) cancelLocked(sid, reason string) bool {
+	r.cancelMemoryLocked(sid)
 	t := r.current[sid]
 	if t == nil || t.Cancelled {
 		return false
 	}
+	r.saveApprovedPrefixLocked(t)
 	t.Cancelled = true
 	t.Cancel()
 	delete(r.current, sid)
@@ -112,7 +140,8 @@ func (r *Runtime) cancelLocked(sid, reason string) bool {
 func (r *Runtime) Cancel(sid, reason string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.cancelLocked(sid, reason)
+	cancelled := r.cancelLocked(sid, reason)
+	return r.interruptSupportLocked(sid) || cancelled
 }
 func (r *Runtime) Emit(t *Turn, kind string, data map[string]any) bool {
 	r.mu.Lock()
@@ -148,6 +177,7 @@ func (r *Runtime) run(t *Turn, text string, media bool, inherited []map[string]a
 			r.Emit(t, "turn.error", map[string]any{"message": runErr.Error()})
 		}
 		r.mu.Lock()
+		t.UserSignals = nil
 		t.Finished = true
 		r.mu.Unlock()
 		r.Emit(t, "turn.finished", map[string]any{"duration_ms": float64(time.Since(t.Started).Microseconds()) / 1000, "note": "生成耗时不是音画反馈时间"})
@@ -160,24 +190,46 @@ func (r *Runtime) run(t *Turn, text string, media bool, inherited []map[string]a
 	}
 	session, _ := r.Store.Session(t.SessionID)
 	character, _ := r.Character(session.CharacterID)
-	messages := []map[string]any{{"role": "system", "content": character.Persona + "\n使用简洁自然的中文回答，不编造工具结果。"}}
-	if media {
-		messages[0]["content"] = provider.String(messages[0]["content"]) + "\n当前是面对面实时语音交谈。每次像正常人接话，默认只说 1–2 句、约 20–60 个汉字，可播报正文最多 80 字。先直接回应当前问题，只讲一个最重要的点；复杂话题分轮展开，等用户继续问。不要演讲、长篇科普、条目罗列、连续举例或复述问题，不要加总结式结尾或空泛的等待用语。缺少关键信息时只问一个简短问题。只有用户明确要求详细说明时才展开，但每次仍最多 3 句、120 字。长度限制只计算可播报正文，不包含结构化字段或提交标记。若需要工具，直接调用工具，不输出工具前言。若确定可以回答，正文必须以 " + answerMarker + " 开头，此标记表示你已提交最终回答、此轮不再调用工具。标记后直接输出可播报正文，不使用其他 XML 标签。"
+	behavior, voice := r.behaviorPrompts()
+	messages := []map[string]any{{"role": "system", "content": character.Persona + behavior + commitPrompt}}
+	if media || r.comparison != nil {
+		messages[0]["content"] = provider.String(messages[0]["content"]) + voice
 	}
 	structured := character.Renderer.Kind == "lam"
 	if structured {
 		messages[0]["content"] = provider.String(messages[0]["content"]) + expressionPrompt
 	}
+	var perceptionMessage map[string]any
+	if len(t.UserSignals) > 0 {
+		messages[0]["content"] = provider.String(messages[0]["content"]) + perceptionPrompt
+		data, _ := json.Marshal(map[string]any{"type": "user_perception", "signals": t.UserSignals})
+		perceptionMessage = map[string]any{"role": "user", "content": string(data)}
+	}
 	if inherited != nil {
+		if perceptionMessage != nil {
+			messages = append(messages, perceptionMessage)
+		}
 		messages = append(messages, inherited...)
 	} else {
-		messages = append(messages, r.Store.History(t.SessionID, r.Config.Limits.MaxHistoryMessages)...)
+		conversation := r.Store.Conversation(t.SessionID, r.Config.Limits.MaxHistoryMessages)
+		if memory := r.memoryMessage(conversation, text); memory != nil {
+			messages[0]["content"] = provider.String(messages[0]["content"]) + memoryContextPrompt
+			messages = append(messages, memory)
+		}
+		messages = append(messages, conversation.Recent...)
+		if perceptionMessage != nil {
+			messages = append(messages, perceptionMessage)
+		}
 		messages = append(messages, map[string]any{"role": "user", "content": text})
 	}
 	commit := []map[string]any{{"role": "user", "content": text}}
 	if media {
 		speech = NewSpeech(t.Context, r.Config, character, r.Bus, t.Metadata, func(kind string, data map[string]any) { r.Emit(t, kind, data) })
 		go r.deadline(t)
+	}
+	if t.Support != nil {
+		runErr = r.runSupport(t, text, messages, commit, structured, speech)
+		return
 	}
 	var firstLLMStarted time.Time
 	firstSpeechTimed := false
@@ -302,6 +354,9 @@ func (r *Runtime) run(t *Turn, text string, media bool, inherited []map[string]a
 			}
 			r.mu.Unlock()
 			r.Emit(t, "assistant.message", map[string]any{"text": textOut, "source": "llm"})
+			if inherited == nil {
+				r.startMemory(t)
+			}
 			if speech != nil {
 				runErr = speech.Finish()
 			}
@@ -484,12 +539,25 @@ func (r *Runtime) Report(sid, tid string, report map[string]any) (map[string]any
 func (r *Runtime) Shutdown() {
 	r.mu.Lock()
 	r.closed = true
+	if r.Store != nil {
+		for _, session := range r.Store.Sessions() {
+			r.interruptSupportLocked(session.ID)
+		}
+	}
+	jobs := []*memoryJob{}
+	for _, job := range r.memoryJobs {
+		jobs = append(jobs, job)
+		job.Cancel()
+	}
 	turns := []*Turn{}
 	for sid, t := range r.current {
 		turns = append(turns, t)
 		r.cancelLocked(sid, "服务停止")
 	}
 	r.mu.Unlock()
+	for _, job := range jobs {
+		<-job.Done
+	}
 	for _, t := range turns {
 		select {
 		case <-t.Done:

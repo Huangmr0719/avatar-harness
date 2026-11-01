@@ -66,8 +66,8 @@ func TestBailianPresetPreservesCharactersToolsAndRenderer(t *testing.T) {
 			t.Fatal(role, p)
 		}
 	}
-	if c.Providers["llm"].Parameters["enable_thinking"] != false {
-		t.Fatal("interactive preset enabled slow thinking mode")
+	if c.Providers["llm"].Parameters["enable_thinking"] != true || c.Providers["llm"].Parameters["reasoning_effort"] != "low" {
+		t.Fatal("interactive preset must use low-effort thinking")
 	}
 	if p := c.Providers["tts"]; p.Model != BailianTTSModel || !strings.HasSuffix(p.BaseURL, "/api-ws/v1/inference") || p.Parameters["voice"] != BailianTTSVoice {
 		t.Fatal("emotion-capable TTS preset uses incompatible endpoint or voice", p)

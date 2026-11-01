@@ -137,3 +137,20 @@ func TestLateInternalStreamCannotWriteAfterCancellation(t *testing.T) {
 		t.Fatal("late output delivered")
 	}
 }
+
+func TestReasoningContentNeverLeavesProvider(t *testing.T) {
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"PRIVATE_THOUGHT\"}}]}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"最终回答\"}}]}\n\ndata: [DONE]\n\n"))
+	}))
+	defer remote.Close()
+	c := config.Default()
+	c.Providers["llm"] = config.Provider{Kind: "openai", BaseURL: remote.URL, Model: "fixture", TimeoutMS: 1000}
+	b, _ := New(&c, nil)
+	var events []map[string]any
+	err := b.LLM(context.Background(), map[string]any{"messages": []any{}}, nil, func(e map[string]any) error { events = append(events, e); return nil })
+	raw, _ := json.Marshal(events)
+	if err != nil || strings.Contains(string(raw), "PRIVATE_THOUGHT") || !strings.Contains(string(raw), "最终回答") {
+		t.Fatal("reasoning escaped provider", string(raw), err)
+	}
+}

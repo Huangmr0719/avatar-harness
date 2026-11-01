@@ -13,3 +13,5 @@ web/public/vendor/ort/
 upstream/
 bin/
 
+services/libreface/weights/
+services/libreface/python-packages/

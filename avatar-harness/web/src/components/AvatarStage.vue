@@ -4,39 +4,49 @@ import type { AudioSegment, MotionFrame, Renderer } from '../types'
 import type { AvatarView } from '../scene'
 import type { LamView } from '../lam'
 import type { ExpressionStyle } from '../expressionControl'
-import type { FaceRigSnapshot } from '../faceRig'
-const props = defineProps<{ renderer: Renderer; turnId: string | null; resetToken: number; expression?: ExpressionStyle; intensity?: number; pad?: Record<string, number> }>()
+import type { HeadOverrides, FaceRigSnapshot } from '../faceRig'
+const props = defineProps<{ renderer: Renderer; turnId: string | null; resetToken: number; expression?: ExpressionStyle; intensity?: number; pad?: Record<string, number>; listening?: boolean; userSpeaking?: boolean }>()
 const emit = defineEmits<{ status: [state: string, message?: string]; driver: [state: string, message?: string] }>()
 const host = ref<HTMLElement | null>(null)
 let view: AvatarView | LamView | null = null
 let generation = 0
+let swap: Promise<void> = Promise.resolve()
 watch(() => props.renderer, async (renderer) => {
   const current = ++generation
-  view?.dispose(); view = null
-  if ((renderer.kind === 'scene' || renderer.kind === 'lam') && renderer.asset_url) {
-    emit('status', 'loading')
+  const cleanup = view?.dispose(); view = null
+  if (renderer.kind === 'scene' || renderer.kind === 'lam') emit('status', 'loading')
+  // The SDK factory cannot abort an in-flight load. Retire it fully before a
+  // replacement uses the same host, and skip selections superseded meanwhile.
+  swap = swap.then(async () => {
     try {
+      await cleanup
       if (current !== generation || !host.value) return
-      const status = (state: string, message?: string) => emit('status', state, message)
-      const driver = (state: string, message?: string) => emit('driver', state, message)
-      if (renderer.kind === 'lam') {
-        const { LamView } = await import('../lam')
-        if (current !== generation || !host.value) return
-        view = new LamView(host.value, status, driver, props.pad, renderer.driver_url)
-      } else {
-        const { AvatarView } = await import('../scene')
-        if (current !== generation || !host.value) return
-        view = new AvatarView(host.value, status)
-      }
-      if ('setExpression' in view) view.setExpression(props.expression ?? 'neutral', props.intensity ?? 1)
-      await view.load(renderer.asset_url)
+      if ((renderer.kind === 'scene' || renderer.kind === 'lam') && renderer.asset_url) {
+        const status = (state: string, message?: string) => { if (current === generation) emit('status', state, message) }
+        const driver = (state: string, message?: string) => { if (current === generation) emit('driver', state, message) }
+        if (renderer.kind === 'lam') {
+          const { LamView } = await import('../lam')
+          if (current !== generation || !host.value) return
+          view = new LamView(host.value, status, driver, props.pad, renderer.driver_url, renderer.speech_jaw_max)
+        } else {
+          const { AvatarView } = await import('../scene')
+          if (current !== generation || !host.value) return
+          view = new AvatarView(host.value, status)
+        }
+        if ('setExpression' in view) view.setExpression(props.expression ?? 'neutral', props.intensity ?? 1)
+        if ('setAttention' in view) view.setAttention(!!props.listening, !!props.userSpeaking)
+        await view.load(renderer.asset_url)
+      } else emit('status', renderer.kind === 'none' ? 'none' : 'loading')
     } catch (error) { if (current === generation) emit('status', 'error', String(error)) }
-  } else emit('status', renderer.kind === 'none' ? 'none' : 'loading')
+  })
+  await swap
 }, { immediate: true, flush: 'post' })
 watch(() => props.turnId, () => view?.clearMotion())
 watch(() => props.resetToken, () => view?.reset())
 watch(() => [props.expression, props.intensity] as const, ([style, intensity]) => { if (view && 'setExpression' in view) view.setExpression(style ?? 'neutral', intensity ?? 1) })
-defineExpose({ clearMotion: () => view?.clearMotion(), comparison: (active: boolean) => { if (view && 'setComparison' in view) view.setComparison(active) }, frames: (frames: MotionFrame[], base: number) => view?.addFrames(frames, base), audio: (segment: AudioSegment) => view?.addAudio(segment), prepare: async (buffer: AudioBuffer, pts: number) => { if (view && 'prepare' in view) return await view.prepare(buffer, pts) }, probe: () => view?.probe() ?? null, faceState: (): FaceRigSnapshot | null => view && 'faceState' in view ? view.faceState() : null, overrideFace: (values: Record<string, number>) => { if (view && 'setFaceOverrides' in view) view.setFaceOverrides(values) } })
+watch(() => [props.listening, props.userSpeaking] as const, ([listening, speaking]) => { if (view && 'setAttention' in view) view.setAttention(!!listening, !!speaking) })
+async function reconnectDriver() { if (view && 'reconnectDriver' in view) await view.reconnectDriver() }
+defineExpose({ reconnectDriver, clearMotion: () => view?.clearMotion(), comparison: (active: boolean) => { if (view && 'setComparison' in view) view.setComparison(active) }, frames: (frames: MotionFrame[], base: number) => view?.addFrames(frames, base), audio: (segment: AudioSegment) => view?.addAudio(segment), prepare: async (buffer: AudioBuffer, pts: number) => { if (view && 'prepare' in view) return await view.prepare(buffer, pts) }, probe: () => view?.probe() ?? null, faceState: (): FaceRigSnapshot | null => view && 'faceState' in view ? view.faceState() : null, overrideFace: (values: Record<string, number>) => { if (view && 'setFaceOverrides' in view) view.setFaceOverrides(values) }, overrideHead: (values: HeadOverrides) => { if (view && 'setHeadOverrides' in view) view.setHeadOverrides(values) } })
 onBeforeUnmount(() => { generation++; view?.dispose() })
 </script>
 <template>

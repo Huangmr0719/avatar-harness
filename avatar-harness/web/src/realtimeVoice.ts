@@ -1,4 +1,4 @@
-export interface Transcript { input_id: string; text: string; final: boolean }
+export interface Transcript { input_id: string; text: string; final: boolean; emotion?: string; language?: string }
 export interface LiveVoiceHooks {
   transcript: (event: Transcript) => void
   state: (state: string, message?: string) => void

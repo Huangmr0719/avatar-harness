@@ -34,11 +34,12 @@ type Tool struct {
 	Parameters  map[string]any `json:"parameters"`
 }
 type Renderer struct {
-	Kind          string `json:"kind"`
-	Driver        string `json:"driver,omitempty"`
-	AssetURL      string `json:"asset_url,omitempty"`
-	URL           string `json:"url,omitempty"`
-	IncludesAudio bool   `json:"includes_audio,omitempty"`
+	SpeechJawMax  float64 `json:"speech_jaw_max,omitempty"`
+	Kind          string  `json:"kind"`
+	Driver        string  `json:"driver,omitempty"`
+	AssetURL      string  `json:"asset_url,omitempty"`
+	URL           string  `json:"url,omitempty"`
+	IncludesAudio bool    `json:"includes_audio,omitempty"`
 }
 type Character struct {
 	ID        string             `json:"id"`
@@ -70,6 +71,7 @@ type Config struct {
 	Characters []Character         `json:"characters"`
 	Limits     Limits              `json:"limits"`
 	OACURL     string              `json:"oac_url,omitempty"`
+	Perception *Provider           `json:"perception,omitempty"`
 }
 
 var Roles = []string{"llm", "asr", "tts", "avatar"}
@@ -116,6 +118,9 @@ func (c *Config) Validate() error {
 		if ch.Renderer.Kind == "" {
 			ch.Renderer.Kind = "none"
 		}
+		if ch.Renderer.SpeechJawMax < 0 || ch.Renderer.SpeechJawMax > 1 {
+			return fmt.Errorf("speech_jaw_max 必须在 0–1 之间；0 表示不校准")
+		}
 		if ch.Renderer.Driver != "" && ch.Renderer.Driver != "local" && ch.Renderer.Driver != "remote" {
 			return fmt.Errorf("LAM driver 必须为 local 或 remote")
 		}
@@ -132,6 +137,19 @@ func (c *Config) Validate() error {
 			if ch.Renderer.Kind == "lam" {
 				ch.Renderer.AssetURL += "/avatar.zip"
 			}
+		}
+	}
+	if c.Perception != nil {
+		p := c.Perception
+		u, err := url.Parse(p.BaseURL)
+		if p.Kind != "fastapi" || err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+			return fmt.Errorf("perception 需要 FastAPI HTTP(S) 地址")
+		}
+		if p.TimeoutMS == 0 {
+			p.TimeoutMS = 2000
+		}
+		if p.TimeoutMS < 100 || p.TimeoutMS > 10000 {
+			return fmt.Errorf("perception 超时配置无效")
 		}
 	}
 	if len(c.Providers) != 4 {

@@ -8,6 +8,7 @@ export class LamSpeech {
   private worker?: Worker
   private remoteRequests = new Set<AbortController>()
   private loadController = new AbortController()
+  private connection?: Promise<void>
   private sequence = 0
   private requests = new Map<number, { resolve: (data: any) => void; reject: (error: Error) => void }>()
   private context = new Float32Array(16000)
@@ -20,10 +21,7 @@ export class LamSpeech {
   constructor(remoteURL?: string) {
     this.remoteURL = remoteURL
     if (remoteURL) {
-      this.ready = this.remote({}, true).then(data => {
-        if (data.input_samples !== 34133 || data.sample_rate !== 16000 || !Array.isArray(data.names) || data.names.join(',') !== ARKIT_NAMES.join(',')) throw new Error('远程 LAM 驱动格式不匹配')
-        this.names = data.names; this.context = new Float32Array(data.input_samples); this.backend = data.backend
-      })
+      this.ready = this.loadRemote()
       return
     }
     this.worker = new Worker(new URL('./lam.worker.ts', import.meta.url), { type: 'module' })
@@ -36,6 +34,17 @@ export class LamSpeech {
     this.worker.onerror = event => { this.fail(new Error(event.message)) }
     this.ready = this.request({ type: 'load' }).then(data => { this.names = data.names; this.backend = data.backend })
   }
+  private loadRemote(): Promise<void> {
+    if (this.connection) return this.connection
+    this.loadController = new AbortController()
+    const connection = this.remote({}, true).then(data => {
+      if (data.input_samples !== 34133 || data.sample_rate !== 16000 || !Array.isArray(data.names) || data.names.join(',') !== ARKIT_NAMES.join(',')) throw new Error('远程 LAM 驱动格式不匹配')
+      this.names = data.names; this.context = new Float32Array(data.input_samples); this.backend = data.backend
+    }).finally(() => { if (this.connection === connection) this.connection = undefined })
+    this.connection = connection
+    return connection
+  }
+  reconnect(): Promise<void> { if (this.remoteURL) { this.reset(); this.ready = this.loadRemote() }; return this.ready }
   private request(data: Record<string, unknown>, transfer: Transferable[] = []): Promise<any> {
     if (this.remoteURL) return this.remote(data)
     const id = ++this.sequence

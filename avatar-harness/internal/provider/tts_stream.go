@@ -145,6 +145,9 @@ func (s *TTSStream) StreamWithInput(text string, options map[string]any, emit Em
 		return err
 	}
 	if isQwenAudioTTS(s.provider) {
+		if err = s.bus.ttsPacer.wait(ctx); err != nil {
+			return err
+		}
 		_, err = qwenAudioTTS(s.conn, s.provider, input, emit)
 		if err == nil {
 			s.used = true

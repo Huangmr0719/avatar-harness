@@ -24,22 +24,24 @@ import (
 const Version = "0.3.0"
 
 type App struct {
-	Config  *config.Config
-	Runtime *kernel.Runtime
-	Handler http.Handler
-	done    context.Context
-	cancel  context.CancelFunc
-	voiceMu sync.Mutex
-	voices  map[string]*voiceConnection
+	Config      *config.Config
+	Runtime     *kernel.Runtime
+	Handler     http.Handler
+	Comparisons *kernel.PromptComparisons
+	done        context.Context
+	cancel      context.CancelFunc
+	voiceMu     sync.Mutex
+	voices      map[string]*voiceConnection
 }
 
 func New(c *config.Config, s *store.Store, b *provider.Bus) *App {
 	ctx, cancel := context.WithCancel(context.Background())
 	a := &App{Config: c, Runtime: kernel.New(c, s, b), done: ctx, cancel: cancel, voices: map[string]*voiceConnection{}}
+	a.Comparisons = kernel.NewPromptComparisons(a.Runtime)
 	a.routes()
 	return a
 }
-func (a *App) Close() { a.cancel(); a.Runtime.Shutdown() }
+func (a *App) Close() { a.cancel(); a.Comparisons.Close(); a.Runtime.Shutdown() }
 func write(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
@@ -65,6 +67,8 @@ func (a *App) session(w http.ResponseWriter, r *http.Request) (store.Session, bo
 }
 func (a *App) routes() {
 	mux := http.NewServeMux()
+	a.interventionRoutes(mux)
+	a.comparisonRoutes(mux)
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		write(w, 200, map[string]any{"status": "ok", "version": Version, "runtime": "go", "go_version": runtime.Version(), "process_id": os.Getpid(), "gpu_required": false})
 	})
@@ -73,7 +77,7 @@ func (a *App) routes() {
 		for name, p := range a.Config.Providers {
 			states[name] = config.State(p)
 		}
-		write(w, 200, map[string]any{"version": Version, "runtime": "go", "providers": states, "characters": a.Config.Characters, "tools": a.Config.Tools, "limits": a.Config.Limits, "configuration": "terminal", "oac_url": a.Config.OACURL})
+		write(w, 200, map[string]any{"version": Version, "runtime": "go", "providers": states, "characters": a.Config.Characters, "tools": a.Config.Tools, "limits": a.Config.Limits, "configuration": "terminal", "oac_url": a.Config.OACURL, "face_analysis": a.Config.Perception != nil})
 	})
 	mux.HandleFunc("GET /api/sessions", func(w http.ResponseWriter, r *http.Request) { write(w, 200, a.Runtime.Store.Sessions()) })
 	mux.HandleFunc("POST /api/sessions", func(w http.ResponseWriter, r *http.Request) {
@@ -142,6 +146,7 @@ func (a *App) routes() {
 	mux.HandleFunc("GET /api/sessions/{id}/events", a.events)
 	mux.HandleFunc("POST /api/sessions/{id}/audio", a.audio)
 	mux.HandleFunc("GET /api/sessions/{id}/voice", a.voice)
+	mux.HandleFunc("POST /api/sessions/{id}/perception", a.perception)
 	mux.HandleFunc("POST /api/sessions/{id}/playback", func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := a.session(w, r); !ok {
 			return
@@ -213,16 +218,18 @@ func (a *App) routes() {
 	assets, _ := fs.Sub(web.Files, "dist")
 	// A dedicated presentation page keeps the comparison script out of the
 	// normal conversation surface. Its frontend uses the same media runtime.
-	mux.HandleFunc("GET /demo/emotions", func(w http.ResponseWriter, r *http.Request) {
-		page, err := fs.ReadFile(assets, "index.html")
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("Cache-Control", "no-cache")
-		_, _ = w.Write(page)
-	})
+	for _, path := range []string{"/demo/emotions", "/demo/prompts"} {
+		mux.HandleFunc("GET "+path, func(w http.ResponseWriter, r *http.Request) {
+			page, err := fs.ReadFile(assets, "index.html")
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-cache")
+			_, _ = w.Write(page)
+		})
+	}
 	mux.Handle("/", http.FileServer(http.FS(assets)))
 	a.Handler = mux
 }
@@ -319,12 +326,12 @@ func (a *App) audio(w http.ResponseWriter, r *http.Request) {
 		problem(w, 422, "ASR 未返回有效文字")
 		return
 	}
-	turn, err := a.Runtime.Start(sid, text, "voice", true, nil)
+	turn, err := a.Runtime.StartVoice(sid, text, store.ID(), started, result.Output)
 	if err != nil {
 		problem(w, 422, err.Error())
 		return
 	}
-	write(w, 202, map[string]any{"turn_id": turn.ID, "text": text})
+	write(w, 202, map[string]any{"turn_id": turn.ID, "text": text, "emotion": result.Output["emotion"], "language": result.Output["language"]})
 }
 func (a *App) asset(w http.ResponseWriter, r *http.Request) {
 	ch, ok := a.Runtime.Character(r.PathValue("character"))

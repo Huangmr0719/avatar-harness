@@ -29,8 +29,9 @@ export class AudioPlayer {
   private idleWaiters = new Set<() => void>()
 
   private prepare?: (buffer: AudioBuffer, pts: number) => Promise<void>
+  private onPreparationError?: (error: unknown) => void
 
-  constructor(onPlaying: (playing: boolean) => void = () => {}, onSchedule: (segment: AudioSegment) => void = () => {}, onPlayback: (segment: AudioSegment) => void = () => {}, prepare?: (buffer: AudioBuffer, pts: number) => Promise<void>) { this.prepare = prepare; this.onPlaying = onPlaying; this.onSchedule = onSchedule; this.onPlayback = onPlayback }
+  constructor(onPlaying: (playing: boolean) => void = () => {}, onSchedule: (segment: AudioSegment) => void = () => {}, onPlayback: (segment: AudioSegment) => void = () => {}, prepare?: (buffer: AudioBuffer, pts: number) => Promise<void>, onPreparationError?: (error: unknown) => void) { this.prepare = prepare; this.onPreparationError = onPreparationError; this.onPlaying = onPlaying; this.onSchedule = onSchedule; this.onPlayback = onPlayback }
 
   private update() {
     const active = this.pending > 0 || this.sources.size > 0
@@ -88,7 +89,12 @@ export class AudioPlayer {
       }
     }
     if (generation !== this.generation) return
-    await this.prepare?.(buffer, packet.pts_ms ?? 0)
+    try { await this.prepare?.(buffer, packet.pts_ms ?? 0) }
+    catch (error) {
+      if (generation !== this.generation) return
+      if (!this.onPreparationError) throw error
+      this.onPreparationError(error)
+    }
     if (generation !== this.generation) return
     const source = context.createBufferSource()
     source.buffer = buffer

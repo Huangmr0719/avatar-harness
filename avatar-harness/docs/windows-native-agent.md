@@ -97,7 +97,7 @@ if ((Get-Item $AvatarFile).Length -ne $AvatarInfo.bytes -or
 }
 ```
 
-当前发布角色为 `colorado-2022`，ZIP 为 4,108,445 字节，SHA256 为 `5da20bf3ebde99f2cf2bbc1934674e1f41204bbb13970f0b7b3eadfc269ba3bb`。上面的检查读取同一提交中的来源记录，后续资产升级时以该记录为准。LFS 指针文本不能作为 ZIP 使用。
+当前发布角色为 `colorado-2022`，已补充眨眼时的眼球遮挡，ZIP 为 4,062,824 字节，SHA256 为 `0905e6d3663be0a3b78ffabc64b1b0973ed51a17b724b5fa1099539e142a93f4`。上面的检查读取同一提交中的来源记录，后续资产升级时以该记录为准。LFS 指针文本不能作为 ZIP 使用。
 
 ## 4. 先构建前端，再测试并编译 Go
 

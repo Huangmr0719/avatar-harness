@@ -20,6 +20,7 @@ type voiceUtterance struct {
 	cancel    context.CancelFunc
 	committed bool
 	endedAt   time.Time
+	startedAt time.Time
 	deadline  *time.Timer
 }
 
@@ -73,7 +74,7 @@ func (v *voiceConnection) warm() {
 				}
 				text := strings.TrimSpace(provider.String(event["text"]))
 				final := event["final"] == true
-				if err := v.send(map[string]any{"type": "transcript", "input_id": u.id, "text": text, "final": final}); err != nil {
+				if err := v.send(map[string]any{"type": "transcript", "input_id": u.id, "text": text, "final": final, "emotion": event["emotion"], "language": event["language"]}); err != nil {
 					return err
 				}
 				if !final {
@@ -86,7 +87,8 @@ func (v *voiceConnection) warm() {
 					u.deadline.Stop()
 				}
 				if text != "" {
-					turn, err := v.app.Runtime.StartVoice(v.sid, text, u.id, u.endedAt)
+					event["_speech_started_at"] = u.startedAt
+					turn, err := v.app.Runtime.StartVoice(v.sid, text, u.id, u.endedAt, event)
 					if err != nil {
 						return err
 					}
@@ -209,6 +211,7 @@ func (a *App) voice(w http.ResponseWriter, r *http.Request) {
 					v.warm()
 				}
 				v.input.id = message.InputID
+				v.input.startedAt = time.Now()
 				a.Runtime.Cancel(session.ID, "新的语音输入")
 			case "commit":
 				u := v.input

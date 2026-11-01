@@ -26,6 +26,10 @@ bash scripts/connect-data2-models
 
 这三个服务只监听 data2 的回环地址。此部署提供 Mac 通过 SSH 调用的路径，没有开放公网端口。
 
+### 连接中断后的恢复
+
+若本机 `18766/health` 连接被拒绝，而 data2 本机健康检查正常，重新建立上述 SSH 隧道。页面此时标注“口型离线”，仍可打开麦克风、识别和播放语音；离线动作不计为音画同步。隧道恢复后点击人物区域的“重连口型”，无需刷新或新建会话。首次加载失败也可用同一入口重试。
+
 在 LAM 页面上传照片、选择示例动作，保持导出 ZIP 选项开启后点击 Generate。页面直接提供下载，持久结果保存在 `outputs/lam/avatar-*.zip`，同名 PNG/MP4 用于预览。每次生成使用独立名字；导出包自动保留现有 harness 使用的七段动画顺序。制作过程需要离线重建和 Blender 导出，不占实时回复的三秒预算。
 
 ## harness provider
@@ -75,3 +79,7 @@ ssh data2 'bash /data2/huangmr/code/avatar-harness/services/modelctl stop lam-cr
 - 前端 43 项测试、Vue 类型检查/构建、Go 全量 race 测试、vet 和二进制构建通过。远程驱动测试覆盖不加载本地 Worker、滚动窗口时间戳和取消后丢弃旧结果。
 
 此次未重跑真实麦克风 → 百炼 → GPU 驱动 → 浏览器实际播放的三秒验收，也未把 LHM 人体接入当前 LAM 渲染器。
+
+## LibreFace 摄像头分析
+
+新增独立服务 `libreface`，GPU3、回环 18769；复用 `/data2/huangmr/code/LibreFace`。本机需同时转发 18769，在页面显式开启“表情分析”后才上传摄像头帧。具体配置、AU 标签、模型分数语义及停止规则见[摄像头感知](camera-perception.md)。

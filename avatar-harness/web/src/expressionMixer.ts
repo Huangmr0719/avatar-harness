@@ -79,6 +79,7 @@ export class ExpressionMixer {
   private energy = 0
   private accent = 0
   private lastAccent = -Infinity
+  private affectGain = .68
   set(style: ExpressionStyle, intensity: number, pad: Record<string, number> = {}) {
     const requested = clamp(intensity)
     // Boost readable mid-range affect while preserving zero, full scale and
@@ -93,7 +94,7 @@ export class ExpressionMixer {
     values.browOuterUpRight = Math.max(values.browOuterUpRight ?? 0, a * .15 * strength)
     this.target = Float32Array.from(ARKIT_NAMES.map(name => values[name] ?? 0))
   }
-  sample(now: number, speech: Record<string, number> = {}, speechEnergy = 0, options: { speechAffect?: boolean } = {}): Record<string, number> {
+  sample(now: number, speech: Record<string, number> = {}, speechEnergy = 0, options: { speechAffect?: boolean; animateAffect?: boolean; speaking?: boolean } = {}): Record<string, number> {
     const delta = this.lastTime == null ? 16 : Math.max(0, now - this.lastTime)
     const alpha = this.lastTime == null ? 1 : 1 - Math.exp(-delta / 120)
     const energy = options.speechAffect === false ? 0 : clamp(speechEnergy)
@@ -103,10 +104,18 @@ export class ExpressionMixer {
       this.accent = energy; this.lastAccent = now
     }
     this.energy += (energy - this.energy) * (1 - Math.exp(-delta / 90))
+    // Keep the emotion readable while letting actual speech carry its emphasis.
+    // Brows/nose rise with a phrase and relax more slowly in its pauses; cheek
+    // and lip affect retain more of the underlying pose. No free-running pulse.
+    const animated = options.animateAffect === true && options.speechAffect !== false
+    const gain = options.speaking ? .82 + .18 * this.energy : .68
+    this.affectGain += (gain - this.affectGain) * (1 - Math.exp(-delta / (gain > this.affectGain ? 160 : 500)))
     this.lastTime = now
     for (let i = 0; i < 52; i++) {
-      const emphasis = (accents[this.style][ARKIT_NAMES[i]] ?? 0) * this.accent * (.4 + .6 * this.strength)
-      this.current[i] += (clamp(this.target[i] + emphasis) - this.current[i]) * alpha
+      const name = ARKIT_NAMES[i]
+      const emphasis = (accents[this.style][name] ?? 0) * this.accent * (.4 + .6 * this.strength)
+      const gain = !animated ? 1 : /^(brow|nose|eyeWide)/.test(name) ? this.affectGain : .55 + .45 * this.affectGain
+      this.current[i] += (clamp(this.target[i] * gain + emphasis) - this.current[i]) * alpha
     }
     const values = arkitFrame(this.current)
     for (const name of ARKIT_NAMES) {

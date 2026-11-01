@@ -50,3 +50,23 @@ test('reset aborts a pending remote window and prevents stale frames from reachi
     assert.deepEqual(await pending,[])
   } finally {driver.dispose();globalThis.fetch=originalFetch}
 })
+
+test('a failed initial driver connection can reconnect once and resume real audio preparation',async()=>{
+  const originalFetch=globalThis.fetch;let healthCalls=0
+  globalThis.fetch=async(_url,options)=>{
+    if(options.method==='GET'){
+      healthCalls++
+      if(healthCalls===1)return Response.json({detail:'connection refused'},{status:502})
+      assert.equal(options.signal.aborted,false)
+      return Response.json(health)
+    }
+    return Response.json({weights:Array(64*52).fill(.2),elapsed_ms:18})
+  }
+  const driver=new LamSpeech('/api/sessions/test/driver')
+  try{
+    await assert.rejects(driver.ready,/connection refused/)
+    await Promise.all([driver.reconnect(),driver.reconnect()])
+    assert.equal(healthCalls,2)
+    assert.ok((await driver.prepare(audio(),0))[0].blendshapes.jawOpen>.19)
+  }finally{driver.dispose();globalThis.fetch=originalFetch}
+})

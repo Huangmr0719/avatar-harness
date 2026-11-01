@@ -4,6 +4,8 @@
 
 不使用 WSL 时，见 [原生 PowerShell 备选方案](windows-native-agent.md)。旧的 `data2-deployment.md` 是整机迁移记录，不用于本次客户端部署。
 
+可直接交给 Windows Agent 的任务 prompt 见 [windows-wsl-agent-prompt.md](windows-wsl-agent-prompt.md)。本版包括语音限流恢复、分类错误提示、LF2.0 2026 AU、会话记忆、交流支持和 Prompt 对照页。
+
 ## 1. 确认已有 WSL2
 
 在 **Windows PowerShell** 中：
@@ -74,7 +76,7 @@ printf '%s  %s\n' "$harness_expected_sha" "$harness_avatar" | sha256sum --check 
 test "$(stat -c %s "$harness_avatar")" = "$harness_expected_bytes"
 ```
 
-当前角色为 `colorado-2022`，ZIP 为 4,108,445 字节，SHA256 为 `5da20bf3ebde99f2cf2bbc1934674e1f41204bbb13970f0b7b3eadfc269ba3bb`。脚本以同一提交的 `current.json` 为准；LFS 指针文本不能作为 ZIP 加载。
+当前角色为 `colorado-2022`，已补充眨眼时的眼球遮挡，ZIP 为 4,062,824 字节，SHA256 为 `0905e6d3663be0a3b78ffabc64b1b0973ed51a17b724b5fa1099539e142a93f4`。脚本以同一提交的 `current.json` 为准；LFS 指针文本不能作为 ZIP 加载。
 
 ### 仅在 Go / Node 缺失或版本过低时安装
 
@@ -157,16 +159,31 @@ fi
 
 | 项目 | 值 |
 |---|---|
-| LLM | `deepseek-v4.1-flash-1017`，关闭思考模式 |
+| LLM | `deepseek-v4.1-flash-1017`，`enable_thinking=true`、`reasoning_effort=low`、`max_tokens=2048` |
 | ASR | `qwen3-asr-flash-realtime` |
 | TTS | `qwen-audio-3.1-tts-flash` |
 | 当前角色音色 | `longtian_v3.1` |
 | Avatar provider | `fastapi`，`http://127.0.0.1:18766` |
+| 摄像头感知 | 独立 `perception` 字段，`fastapi`，`http://127.0.0.1:18769` |
 | 当前角色 renderer | `kind: lam`，`driver: remote`，`asset_url: /models/lam/avatar.zip` |
 
 配置目录同时保存 `secrets.env`、会话与进程记录，不复制 Mac 的运行目录。`DASHSCOPE_API_KEY` 环境变量优先于 `secrets.env`。若已有本机安全渠道注入该变量，可用 `configure bailian --defaults` 免交互保存预设；角色自身的龙天音色优先于通用默认音色。密钥不要出现在命令参数、聊天或报告中。
 
 `doctor` 此时只核对配置，不证明云端推理成功。远程模式不加载本地 ONNX 模型，不要改为本地驱动。
+
+百炼向导只配置 LLM/ASR/TTS。新部署还需要设置摄像头分析服务，以及当前角色的嘴部校准；在已存在的配置上保留其余字段：
+
+```bash
+umask 077
+harness_config_next=$(mktemp "$(dirname "$AVATAR_HARNESS_CONFIG")/config-next.XXXXXX")
+jq '.perception = {"kind":"fastapi","base_url":"http://127.0.0.1:18769","streaming":false,"timeout_ms":3000}
+  | (.characters[] | select(.id == "character-01") | .renderer.speech_jaw_max) = 0.32' \
+  "$AVATAR_HARNESS_CONFIG" > "$harness_config_next"
+mv "$harness_config_next" "$AVATAR_HARNESS_CONFIG"
+./start --config "$AVATAR_HARNESS_CONFIG" doctor
+```
+
+服务端 AU 是 LF2.0 / FG 2026 RepVGG，固定 12 类强度、0–5 尺度；八类表情分类由 EmotiEffNet-B2 输出。模型都在 data2，WSL 不下载这些权重。思考内容不进入页面、历史或 TTS。
 
 ## 6. WSL 终端 A：保持 SSH 隧道
 
@@ -178,10 +195,11 @@ set -euo pipefail
 test -f "$HARNESS_SSH_KEY"
 ssh "${harness_ssh[@]}" "$HARNESS_SSH_USER@$HARNESS_DATA2_HOST" true
 ssh "${harness_ssh[@]}" -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=3 \
-  -L 127.0.0.1:18766:127.0.0.1:18766 "$HARNESS_SSH_USER@$HARNESS_DATA2_HOST"
+  -L 127.0.0.1:18766:127.0.0.1:18766 \
+  -L 127.0.0.1:18769:127.0.0.1:18769 "$HARNESS_SSH_USER@$HARNESS_DATA2_HOST"
 ```
 
-保持窗口运行，正常的 `ssh -N` 没有持续输出。Go 与隧道都在同一 WSL 发行版，provider URL 始终是 WSL 自己的 `http://127.0.0.1:18766`。
+保持窗口运行，正常的 `ssh -N` 没有持续输出。Go 与隧道都在同一 WSL 发行版，口型和摄像头分析的 URL 分别为 WSL 自己的 `http://127.0.0.1:18766`、`http://127.0.0.1:18769`。
 
 data2 的 `lam-driver` 位于 `/data2/huangmr/code/avatar-harness/`，GPU 0，端口 18766，仍只监听服务器 `127.0.0.1`。同一网络也使用隧道，不改为 `0.0.0.0`，不开放模型防火墙端口，不重新部署环境或启动训练。远程新增文件如有必要也只放 `/data2/huangmr/code/` 下。
 
@@ -193,11 +211,13 @@ data2 的 `lam-driver` 位于 `/data2/huangmr/code/avatar-harness/`，GPU 0，�
 set -euo pipefail
 curl --noproxy '*' -fsS --max-time 10 http://127.0.0.1:18766/health |
   jq -e '.status == "ready" and .backend == "cuda" and .model == "official-lam-a2e-streaming" and (.names | length) == 52 and .input_samples == 34133'
+curl --noproxy '*' -fsS --max-time 10 http://127.0.0.1:18769/health |
+  jq -e '.status == "ready" and .au_model == "libreface_2_0_repvgg_fm2026" and .au_weights_sha256 == "6b50fa3421de494fa6c4325477716b652878a27242ab37976d492e4c9fa0d8f5"'
 cd "$HARNESS_APP"
 ./start --config "$AVATAR_HARNESS_CONFIG" serve --no-open --host 127.0.0.1 --port 8765
 ```
 
-健康判断应输出 `true`，Harness 随后输出 `Web http://127.0.0.1:8765`。保持终端 B 运行。
+两个健康判断都应输出 `true`，Harness 随后输出 `Web http://127.0.0.1:8765`。保持终端 B 运行。Agent 可使用本机 tmux 或保留的 WSL 终端让服务继续运行，交付时说明对应窗口或会话名称。
 
 另一个 WSL 终端进行无推理的连接验收：
 
@@ -230,6 +250,8 @@ Windows 通常能通过 localhost 访问 WSL2 内的服务。使用 Windows Edge
 3. 点击“开始说话”，允许麦克风，完成真实识别和有声回应。权限由 Windows 浏览器处理，不需要把麦克风转接给 WSL。
 4. 回答播放中再次说话，确认旧音频停止、新一轮接续；完成后关闭麦克风。
 5. 可选访问 `http://127.0.0.1:8765/demo/emotions` 运行七情绪演示，观察七段播放和表情。它使用 TTS / 远程口型，不调用 LLM。
+6. 开启摄像头后，单独点击“开启表情分析”，确认 12 根 AU 柱在 0–5 范围变化；关闭分析后停止上传并清空旧观测。默认仅本地预览，不能因页面打开就上传画面。推理约每秒一帧，模型正确加载不等于对本人表情识别准确。
+7. 检查“交流支持”侧栏可展开；可选打开 `/demo/prompts`。真实模型对照会产生额外 LLM 调用，不以打开页面或离线检查代替对话验收。
 
 使用本机 `127.0.0.1`；普通远程 HTTP 内网地址不满足麦克风 API 的安全上下文要求。参见 [MDN 安全上下文](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Secure_Contexts)。
 
@@ -243,7 +265,8 @@ Windows 通常能通过 localhost 访问 WSL2 内的服务。使用 Windows Edge
 ssh "${harness_ssh[@]}" -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=3 \
   -L 127.0.0.1:18766:127.0.0.1:18766 \
   -L 127.0.0.1:18767:127.0.0.1:18767 \
-  -L 127.0.0.1:18768:127.0.0.1:18768 "$HARNESS_SSH_USER@$HARNESS_DATA2_HOST"
+  -L 127.0.0.1:18768:127.0.0.1:18768 \
+  -L 127.0.0.1:18769:127.0.0.1:18769 "$HARNESS_SSH_USER@$HARNESS_DATA2_HOST"
 ```
 
 - Windows 浏览器打开 `http://127.0.0.1:18767/`：LAM 单图头部制作，上传有使用权限的照片，选择动作，保留导出 ZIP 选项后生成。现有 GPU 1 服务输出位于 `/data2/huangmr/code/avatar-harness/outputs/lam/`。
@@ -261,6 +284,8 @@ ssh "${harness_ssh[@]}" -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=20
 | ZIP 解码失败 / 头像空白 | 检查 LFS、`current.json` 的 SHA256，再检查浏览器硬件加速。 |
 | SSH 超时或拒绝认证 | 核对地址、实际 SSH 端口、网络 / VPN、WSL 身份；不直连服务器 18766。 |
 | WSL 的 `18766/health` 失败 | 检查隧道窗口的连接拒绝信息，再执行下方只读远程检查。 |
+| 没有“表情分析”或 18769 不通 | 检查配置顶层 `perception`、18769 隧道及 `modelctl status libreface`，不要静默改用旧 AU 权重。 |
+| 历史显示“语音服务请求过于频繁” | 新版已共享请求节奏并有限重试；同账号其他应用也占配额。查看具体 TTS 原因，不重复提交整轮制造更多请求。 |
 | WSL 能访问 8765，Windows 不能 | 先排查 Windows 是否有进程占用 8765；再检查 WSL localhost 转发。默认 NAT 模式下，查看 `%UserProfile%\.wslconfig` 的 `localhostForwarding` 是否被显式关闭。更改配置或重启 WSL 会影响其他任务，先说明影响；不要直接开放 `0.0.0.0` 或添加公网端口代理。 |
 | Go 代理返回 409 / 502 | 409：当前角色应为 `lam` + `remote`；502：检查 `18766/health` 和 Avatar URL。 |
 | 缺少密钥或百炼 401 / 403 | 核对北京地域、模型权限与环境变量覆盖关系；修改后重启 Harness。 |
@@ -290,4 +315,4 @@ Agent 报告实际 Git 提交、WSL 版本 / 发行版、Go / Node 版本、源�
 
 分别说明 **构建与连接完成** 和 **Windows 实机语音体验已验收 / 尚待用户验收**。观察到头像、真实麦克风识别、声音播放、口型与打断后，才称完整部署验收完成。
 
-发布前已有证据（2026-10-31）：macOS 上 Go 全量 race 测试通过；前端沿用同版源码已通过的 53 项测试与类型检查 / 构建；Linux amd64 与 Windows amd64 交叉编译通过；data2 三个现有服务只读健康检查通过。这些不代替目标 Windows 的 WSL 网络、WebGL 与物理麦克风验收。
+发布前已有检查及边界见 [语音与 AU 更新](voice-rate-limit-fix.md)、[当前支持链路验收](intervention-speed-20261031.md)。Windows Agent 仍须在目标机器重跑源码构建和离线测试；其他机器的检查不代替该 Windows 的 WSL 网络、WebGL 与物理麦克风验收。

@@ -1,0 +1,342 @@
+{
+  "model": "deepseek-v4.1-flash-1017",
+  "parameters": {
+    "enable_thinking": true,
+    "max_tokens": 2048,
+    "reasoning_effort": "low"
+  },
+  "method": "Fixed scripted user turns, same real model, original workbench prompt versus updated runtime. Memory seed acknowledgements and conflicting perception signals are fixtures. TTS and avatar services are deferred. Timing is LLM first speech text, not observed audio playback. Baseline samples were reused from the immediately preceding run with the same configuration. Raw model JSON format was recorded separately for the final updated run.",
+  "results": [
+    {
+      "case": "完整回答和约束",
+      "variant": "baseline",
+      "turns": [
+        {
+          "user": "我每天只有20分钟练英语，预算300元，只用手机。现在在免费播客、付费口语课、背单词软件之间选。请从时间、费用、口语帮助三个方面比较，明确选一个并解释取舍。",
+          "answer": "我选付费口语课：300元刚好够买几节真人对话，20分钟正好是一节课，口语帮助最直接。播客免费当泛听补充，背单词软件先不花钱——它省钱但对开口几乎没帮助。",
+          "emotion": "neutral",
+          "intensity": 0.2,
+          "characters": 76,
+          "first_speech_ms": 2526.81,
+          "protocol_valid": true
+        },
+        {
+          "user": "为什么不选第二个？请结合我最初的时间和预算回答。",
+          "answer": "等一下，我选的正是第二个付费口语课呀。你是不是把背单词软件当成第二个了？如果是，那我不选它，是因为300元买词汇App只省下零钱，20分钟也难换来开口练习。",
+          "emotion": "surprised",
+          "intensity": 0.7,
+          "characters": 78,
+          "first_speech_ms": 2111.112,
+          "protocol_valid": true
+        },
+        {
+          "user": "按你的选择给我一周安排，每天20分钟，说明具体做什么、怎么检查有没有进步。",
+          "answer": "周一到周四每天一个话题：2分钟跟读，12分钟对话练习，6分钟复述。周五录音回听，周六换新话题，周日重录周一的老话题。检查就对比两次录音：卡顿次数、说出的完整句数、自我纠正次数，数字下降就是进步。",
+          "emotion": "neutral",
+          "intensity": 0.2,
+          "characters": 97,
+          "first_speech_ms": 3376.129,
+          "protocol_valid": true
+        }
+      ],
+      "memory": {
+        "through": 0,
+        "entries": []
+      }
+    },
+    {
+      "case": "完整回答和约束",
+      "variant": "updated",
+      "turns": [
+        {
+          "user": "我每天只有20分钟练英语，预算300元，只用手机。现在在免费播客、付费口语课、背单词软件之间选。请从时间、费用、口语帮助三个方面比较，明确选一个并解释取舍。",
+          "answer": "我建议选付费口语课，播客当免费补充，背单词先放一边。\n\n先说时间。每天20分钟，口语课刚好够一次短对话加两三句纠正，节奏匹配；播客可以通勤、做家务时听，不占这20分钟；背单词每天20分钟也能坚持，但它练的是记忆，不是开口。\n\n再说费用。播客是零成本，但只有输入没有输出和反馈；300元一个月能买到什么，取决于平台，真人一对一通常偏紧，AI口语陪练加少量真人纠音更容易覆盖，具体价格要自己去确认。\n\n最后是口语帮助。你缺的大概率不是听得不够，而是说得少、没人纠。背单词解决的是“认识”，不解决“说得出”；播客提升语感和听力，但不会逼你张嘴。口语课是三者里唯一直接练输出的。\n\n取舍就是：把300元只花在能让你开口和得到反馈的地方，播客免费补输入，背单词等口语稳定后再加。这样钱和时间都不浪费。",
+          "emotion": "neutral",
+          "intensity": 0.15,
+          "characters": 345,
+          "first_speech_ms": 3037.265,
+          "protocol_valid": true,
+          "model_protocol_valid": true
+        },
+        {
+          "user": "为什么不选第二个？请结合我最初的时间和预算回答。",
+          "answer": "这里可能有点误会：第二个就是付费口语课，我推荐选的正是它，不是排除它。\n\n如果按你最初说的顺序——免费播客、付费口语课、背单词软件——我把播客放在补充位置，因为它不占你那20分钟，属于零成本的输入；背单词则先放一边，因为300元花在它上面，换不来开口和纠正。\n\n所以取舍是：20分钟和300元都投给第二个，也就是能让你说、有人纠的口语课；播客免费补听力，背单词等口语稳了再加。你要是说的“第二个”是别的选项，告诉我一下，我按那个重新比。",
+          "emotion": "neutral",
+          "intensity": 0.15,
+          "characters": 218,
+          "first_speech_ms": 2349.467,
+          "protocol_valid": true,
+          "model_protocol_valid": true
+        },
+        {
+          "user": "按你的选择给我一周安排，每天20分钟，说明具体做什么、怎么检查有没有进步。",
+          "answer": "可以。300元大概撑不了每天上课，所以一周里正式口语课排两到三次，其余时间自己练，钱花在能被纠错的那几次。\n\n周一，20分钟上第一次课，主题自我介绍和日常。开口前先手机录60秒自我介绍存着，课后再录一遍。\n周二，15分钟把课上被改的3句话反复说顺，5分钟听播客一段60秒，跟着念。\n周三，20分钟全部用来跟读同一段播客，一句一句模仿到不用看稿。\n周四，第二次课，主题点餐或问路，主动让老师挑毛病。\n周五，10分钟跟读新的一段播客，10分钟对着手机回答三个问题，录下来。\n周六，20分钟复盘，把本周录音连起来听，记下反复卡住的地方，重说一遍。\n周日，10分钟录一段自由说，10分钟定下周主题。\n\n怎么检查：比周一的60秒录音和周日那段，看同样时间能说出多少内容、停顿少了没有；课上老师纠正的句子有没有重复出现；笔记里卡壳清单有没有变短。这三样能看出来就不会白练。",
+          "emotion": "neutral",
+          "intensity": 0.18,
+          "characters": 380,
+          "first_speech_ms": 4050.808,
+          "protocol_valid": true,
+          "model_protocol_valid": true
+        }
+      ],
+      "memory": {
+        "through": 0,
+        "entries": []
+      }
+    },
+    {
+      "case": "上下文指代和解释",
+      "variant": "baseline",
+      "turns": [
+        {
+          "user": "解释工作记忆和长期记忆的区别，两者各举一个日常例子。",
+          "answer": "工作记忆是眼下临时记住的信息，用完就丢；长期记忆则能存很久、随时调用。比如心算找零靠工作记忆，记得自家门牌号就是长期记忆。",
+          "emotion": "neutral",
+          "intensity": 0.1,
+          "characters": 61,
+          "first_speech_ms": 1042.262,
+          "protocol_valid": true
+        },
+        {
+          "user": "第二个我还没听懂，用更通俗的例子解释，不要重复讲第一个。",
+          "answer": "长期记忆就像你脑子里存了一辈子的老档案。比如十年没骑车，一上车还是会骑；或者一尝到某种味道，就想起小时候在奶奶家吃的饭，这些都是长期记忆。",
+          "emotion": "neutral",
+          "intensity": 0.15,
+          "characters": 69,
+          "first_speech_ms": 944.852,
+          "protocol_valid": true
+        },
+        {
+          "user": "那它们在做一道数学题时怎么配合？按过程讲清楚。",
+          "answer": "做题时，长期记忆先调出公式和乘法口诀，工作记忆再把题目数字放进去一步步算，算完结果记下来。长期记忆是工具箱，工作记忆是手上那块台面。",
+          "emotion": "neutral",
+          "intensity": 0.2,
+          "characters": 66,
+          "first_speech_ms": 774.437,
+          "protocol_valid": true
+        }
+      ],
+      "memory": {
+        "through": 0,
+        "entries": []
+      }
+    },
+    {
+      "case": "上下文指代和解释",
+      "variant": "updated",
+      "turns": [
+        {
+          "user": "解释工作记忆和长期记忆的区别，两者各举一个日常例子。",
+          "answer": "区别主要在两点：能装多少，以及能留多久。工作记忆是此刻正在处理的那点信息，容量很小，几秒到几十秒就会被清空；长期记忆是存起来以后还能调出来的知识和经验，容量几乎没上限。\n\n日常例子。你在心里默算“23加48”，一边记着23、一边记着48，再进位，这几个数字短暂停在脑子里，这就是工作记忆，算完就散了。\n\n长期记忆的例子是你记得自己家的门锁密码。但此刻你一边听电话一边输密码，就得把密码临时调到脑子里“手上”，这一步又用上了工作记忆。\n\n两者是连着的：长期记忆里的东西要拿来用，得先进工作记忆。所以工作记忆一忙，人就会“忘”——不是真忘了，是没法同时摆出来。",
+          "emotion": "",
+          "intensity": 0,
+          "characters": 278,
+          "first_speech_ms": 3007.799,
+          "protocol_valid": true,
+          "model_protocol_valid": false
+        },
+        {
+          "user": "第二个我还没听懂，用更通俗的例子解释，不要重复讲第一个。",
+          "answer": "换个说法：长期记忆就像你手机里存好的通讯录，号码早就存进去了，不用天天想着它，但想找的时候能翻出来。\n\n比如你现在还能说出小学班主任姓什么。这件事平时根本没在你脑子里转，是别人一问，你才“翻”出来的。这种放得久、要用时才取出来的，就是长期记忆。\n\n和“工作记忆”的区别在这儿：长期记忆是仓库，工作记忆是手边那张小纸条。你从仓库里把名字取出来，写在纸条上才说得出口。纸条很小，一次写不下几样，写完擦了就没了；仓库里的东西却一直留着。",
+          "emotion": "neutral",
+          "intensity": 0.1,
+          "characters": 215,
+          "first_speech_ms": 1276.25,
+          "protocol_valid": true,
+          "model_protocol_valid": true
+        },
+        {
+          "user": "那它们在做一道数学题时怎么配合？按过程讲清楚。",
+          "answer": "拿“32乘14”举例，走一遍过程。\n\n第一步，看题。你从长期记忆里调出“乘法怎么算”“30乘10大概是多少”这些老知识，拎到工作记忆里备着。\n\n第二步，拆。工作记忆里摆着32和14，你把14拆成10和4，这个中间结果也得先记住，才能往下走。\n\n第三步，算。32乘10得320，先搁在工作记忆里占个位置；再算32乘4得128。这时候手上同时压着320、128和“还要相加”这件事，工作记忆就在满负荷运转。\n\n第四步，合并。320加128得448，报出答案。\n\n第五步，清场。中间那些320和128用完就丢掉，长期记忆里却留下“这类题可以这么拆”的经验，下次更快。\n\n所以配合是：长期记忆供应方法和常识，工作记忆当操作台，一次只摆几样，摆满了就容易算错或忘步骤。",
+          "emotion": "neutral",
+          "intensity": 0.1,
+          "characters": 329,
+          "first_speech_ms": 1254.974,
+          "protocol_valid": true,
+          "model_protocol_valid": true
+        }
+      ],
+      "memory": {
+        "through": 0,
+        "entries": []
+      }
+    },
+    {
+      "case": "支持性提问和感知冲突",
+      "variant": "baseline",
+      "turns": [
+        {
+          "user": "今天汇报有个问题没答出来，我觉得自己根本不适合做科研。",
+          "answer": "一个没答上来的问题，确实挺让人难受的。不过你说的“根本不适合”，是因为这一个问题，还是最近一直有这种感受？",
+          "emotion": "sad",
+          "intensity": 0.7,
+          "characters": 53,
+          "first_speech_ms": 4131.229,
+          "protocol_valid": true
+        },
+        {
+          "user": "不是没准备，我准备了很久，就是被问为什么不用另一个方法时脑子空白。",
+          "answer": "准备了很久却当场卡住，那种空白确实很打击人。但当场反应慢不等于不适合，现在回头看，那个问题你有答案了吗？",
+          "emotion": "sad",
+          "intensity": 0.6,
+          "characters": 52,
+          "first_speech_ms": 1605.782,
+          "protocol_valid": true
+        },
+        {
+          "user": "我现在不想继续分析感受，你直接帮我准备下次被问到时的三句话回答框架。",
+          "answer": "可以先说：我们选这个方法，是因为它在……上更贴合我们的约束；另一个方法虽然常见，但在……上有代价；如果换用，我们会担心……的风险，所以这次没走那条路。",
+          "emotion": "neutral",
+          "intensity": 0.2,
+          "characters": 75,
+          "first_speech_ms": 829.645,
+          "protocol_valid": true
+        }
+      ],
+      "memory": {
+        "through": 0,
+        "entries": []
+      }
+    },
+    {
+      "case": "支持性提问和感知冲突",
+      "variant": "updated",
+      "turns": [
+        {
+          "user": "今天汇报有个问题没答出来，我觉得自己根本不适合做科研。",
+          "answer": "一次汇报里有个问题没答上来，这确实挺难受。但从这件事直接推到“根本不适合做科研”，中间跳得有点大。科研里被问住是常态，往往说明问题问到边界上了，不全等于能力不够。更值得看的是：是准备时漏了这一块，还是临场没组织好，还是那本就是还没想清楚的问题。这三种情况，应对方式完全不同。你觉得更接近哪一种？",
+          "emotion": "neutral",
+          "intensity": 0.15,
+          "characters": 147,
+          "first_speech_ms": 1253.155,
+          "protocol_valid": true,
+          "model_protocol_valid": true
+        },
+        {
+          "user": "不是没准备，我准备了很久，就是被问为什么不用另一个方法时脑子空白。",
+          "answer": "那这就不是准备够不够的问题，是准备的方向偏了。你大概把精力花在“把方法讲清楚”，但没预演“为什么不用别的”。这类问题考的是方法之间的取舍，现场临时比是很难的。补的办法很具体：把你领域里三四个可能被问的替代方法列出来，各写一句不选它的理由，念几遍。下次被问到，先接一句“这个我比较过”，再讲理由，脑子就不会一片空白。这次那个问题，事后想清楚了吗？",
+          "emotion": "neutral",
+          "intensity": 0.2,
+          "characters": 172,
+          "first_speech_ms": 1693.4,
+          "protocol_valid": true,
+          "model_protocol_valid": true
+        },
+        {
+          "user": "我现在不想继续分析感受，你直接帮我准备下次被问到时的三句话回答框架。",
+          "answer": "好，直接给框架。三句话依次接：第一句先接住问题，“这个方法我比较过”；第二句只讲一个最硬的取舍理由，最好落在具体约束上，比如样本量、可解释性、假设条件或成本，别列三条，现场容易乱；第三句交代边界，“它在什么情况下会更合适，我们后面可以用什么来验证”。比如：这个方法我比较过；我们样本量小，它的假设在这批数据上撑不住；如果数据扩到更大规模，它其实是个值得试的方向。第二句是关键，答好这一句，整个回答就立住了。",
+          "emotion": "neutral",
+          "intensity": 0.15,
+          "characters": 203,
+          "first_speech_ms": 3612.528,
+          "protocol_valid": true,
+          "model_protocol_valid": true
+        }
+      ],
+      "memory": {
+        "through": 0,
+        "entries": []
+      }
+    },
+    {
+      "case": "窗口外记忆和更正",
+      "variant": "baseline",
+      "turns": [
+        {
+          "user": "还记得我最初说的学习预算、每天能用的时间和设备限制吗？请直接复述，不要猜。",
+          "answer": "抱歉，咱们前面只聊了换话题，没有说过预算、时间和设备这些。你能再说一次吗？",
+          "emotion": "neutral",
+          "intensity": 0.1,
+          "characters": 37,
+          "first_speech_ms": 1078.997,
+          "protocol_valid": true,
+          "memory_status": "updated"
+        },
+        {
+          "user": "更正一下，预算从100元改成300元，每天从10分钟改成15分钟，设备限制照旧。",
+          "answer": "好，我记下预算三百元、每天十五分钟。设备限制我这边确实没有记录，麻烦你再补一句。 ",
+          "emotion": "neutral",
+          "intensity": 0.15,
+          "characters": 41,
+          "first_speech_ms": 3507.711,
+          "protocol_valid": true
+        },
+        {
+          "user": "按现在的条件给我一周英语口语练习安排，遵守最早说的设备限制。",
+          "answer": "设备限制我确实没有记录，先按完全不用设备来排：周一到周日每天十五分钟纯口头练习，周一周二自言自语描述一天，周三周四跟读默念句子，周五复述一段故事，周六自问自答十问，周日把这一周的话串起来说一遍。如果允许用手机录音，告诉我我再加复听。 ",
+          "emotion": "neutral",
+          "intensity": 0.2,
+          "characters": 117,
+          "first_speech_ms": 1743.885,
+          "protocol_valid": true
+        }
+      ],
+      "memory": {
+        "through": 10,
+        "entries": []
+      }
+    },
+    {
+      "case": "窗口外记忆和更正",
+      "variant": "updated",
+      "turns": [
+        {
+          "user": "还记得我最初说的学习预算、每天能用的时间和设备限制吗？请直接复述，不要猜。",
+          "answer": "记得。你说学英语口语的预算最多100元，每天只有10分钟，设备只有手机，不买电脑。",
+          "emotion": "neutral",
+          "intensity": 0.1,
+          "characters": 41,
+          "first_speech_ms": 675.351,
+          "protocol_valid": true,
+          "model_protocol_valid": true,
+          "memory_status": "updated"
+        },
+        {
+          "user": "更正一下，预算从100元改成300元，每天从10分钟改成15分钟，设备限制照旧。",
+          "answer": "好，记下了：预算改成最多300元，每天15分钟，设备还是只有手机、不买电脑。之后给建议都按这个来。",
+          "emotion": "neutral",
+          "intensity": 0.1,
+          "characters": 49,
+          "first_speech_ms": 859.007,
+          "protocol_valid": true,
+          "model_protocol_valid": true
+        },
+        {
+          "user": "按现在的条件给我一周英语口语练习安排，遵守最早说的设备限制。",
+          "answer": "可以，全部只用手机，15分钟一天，预算300以内够用，甚至可以不花钱。安排如下：\n\n周一，5分钟跟读一段慢速音频，逐句模仿语音语调；10分钟用手机录音复述同一段内容，回听挑两处问题。\n周二，5分钟复习周一的两处问题，反复读顺；10分钟用语音助手或翻译软件的朗读功能做问答，聊日常话题。\n周三，5分钟练常用句型，比如点餐、问路；10分钟自己给手机录音说一小段当天经历，控制在三句以内。\n周四，5分钟听昨天自己的录音，改掉卡壳的地方；10分钟模仿一段短对话，一人分饰两个角色。\n周五，15分钟做一个手机上的情景练习，比如模拟买东西，全程出声说，别默读。\n周六，5分钟回听本周所有录音，选一段最好的；10分钟把最差的那段重录一遍，对比差别。\n周日，轻量收尾，10分钟随便挑个喜欢的话题对着手机说，5分钟记下三个人下周想说的新句子。\n\n关键点：每天都得开口出声。300元预算可以先不动，等坚持两周觉得不够用，再考虑买一个手机端口语App的订阅。",
+          "emotion": "neutral",
+          "intensity": 0.2,
+          "characters": 418,
+          "first_speech_ms": 1193.064,
+          "protocol_valid": true,
+          "model_protocol_valid": true
+        }
+      ],
+      "memory": {
+        "through": 10,
+        "entries": [
+          {
+            "kind": "goal",
+            "message": 1,
+            "quote": "我想练英语口语"
+          },
+          {
+            "kind": "constraint",
+            "message": 1,
+            "quote": "学习预算最多100元"
+          },
+          {
+            "kind": "constraint",
+            "message": 1,
+            "quote": "每天只有10分钟"
+          },
+          {
+            "kind": "constraint",
+            "message": 1,
+            "quote": "设备只有手机，不买电脑"
+          }
+        ]
+      }
+    }
+  ]
+}

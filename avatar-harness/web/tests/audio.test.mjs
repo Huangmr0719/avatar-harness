@@ -136,3 +136,19 @@ test('motion preparation completes before playback and cancelled inference canno
   assert.deepEqual(fixture.started, [3])
   player.stop()
 })
+
+test('an unavailable avatar driver does not silence audio when its owner provides degraded playback',async()=>{
+  const fixture=audioFixture(),errors=[]
+  const player=new AudioPlayer(()=>{},()=>{},()=>{},async()=>{throw Error('driver disconnected')},error=>errors.push(error.message))
+  await player.play(packet(2))
+  assert.deepEqual(fixture.started,[2])
+  assert.deepEqual(errors,['driver disconnected'])
+  player.stop()
+})
+
+test('cancelled motion failures cannot revive audio through degraded playback',async()=>{
+  const fixture=audioFixture(),entered=deferred(),failed=deferred(),errors=[]
+  const player=new AudioPlayer(()=>{},()=>{},()=>{},async()=>{entered.resolve();await failed.promise;throw Error('old failure')},error=>errors.push(error))
+  const pending=player.play(packet(2));await entered.promise;player.stop();failed.resolve();await pending
+  assert.deepEqual(fixture.started,[]);assert.deepEqual(errors,[])
+})

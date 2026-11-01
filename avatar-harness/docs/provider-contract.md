@@ -72,6 +72,14 @@ TTS：
 
 Go 语音流水线的 `Bus.NewTTSStream` 为每条合成工作通道管理本轮会话：百炼在 LLM 生成期间异步建连；Qwen-Audio-TTS 收到已提交的情感后发送带 `instruction` 的 `run-task`，每个文本段使用独立 UUID，以 `task-finished` 为完成边界，随后复用连接。旧 Qwen3-TTS 提前配置会话，重复 append／commit，以 `response.done` 为边界。取消或本轮完成后关闭连接。并发通道不共享同一条 WebSocket。FastAPI／内部 Go provider 仍使用原有逐段 `/stream`／`/invoke`，同时收到最新 `expression_intent`；单独调用 `Bus.Stream` 或 `Invoke` 保留一次性调用语义。
 
+### Qwen-Audio-TTS 请求节奏与限流恢复
+
+所有合成通道与独立 `Bus.Stream/Invoke` 调用共用 Bus 内的请求节奏控制，相邻任务间隔至少 400ms；没有其他排队任务时首段立即开始。等待可取消，取消的任务不占未来时隙。限速覆盖本 Harness，不控制同一百炼主账号的其他应用。
+
+会话语音遇到 `Throttling.RateQuota/BurstRate`，且该分段尚未输出任何音频时，最多重试两次，分别等待 500ms、1000ms 并重新连接。分段已输出音频后不重试，避免重复朗读。重试沿用原分段的排序通道，停止会取消排队、退避和连接。`pipeline.timing` 的 `tts.retry` 仅为诊断事件；恢复成功不写错误提示。
+
+最终失败的 `pipeline.error` 带 `capability: tts` 与 `code: rate_limited/tts_failed`。页面按能力解释失败，保留文字回复；同一轮、同一能力、同一原因只显示一条。旧会话没有 code 时从保留的错误文本识别限流和回复格式错误；原始事件和诊断内容不被改写。
+
 ## 各能力输入
 
 | 能力 | 输入 | 结果 |
@@ -82,7 +90,7 @@ Go 语音流水线的 `Bus.NewTTSStream` 为每条合成工作通道管理本轮
 | Avatar | operation、character_id；animate 时附 audio、expression_intent | 展示描述或逐帧动作 |
 | 工具 | 已注册 schema 对应参数 | 确定性结果或真实模型结果 |
 
-本机摄像头模块默认仅预览，尚未自动接入视觉模型；图像分析可作为独立工具扩展，不会偷偷把摄像头画面注入 LLM。
+摄像头默认仅本地预览；用户单独开启“表情分析”后，帧经同源 perception 接口进入 data2 LibreFace，输出 AU 与表情观察。当前轮仅把新鲜结构化观察交给 LLM，不传原始画面。ASR 最终事件的 emotion/language 同步返回并用于本句感知上下文。关闭、过期和迟到结果隔离见[摄像头感知协议](camera-perception.md)。
 
 ## Avatar 展示描述
 
@@ -103,6 +111,8 @@ Go 语音流水线的 `Bus.NewTTSStream` 为每条合成工作通道管理本轮
 `lam` 在浏览器专用高斯渲染器中加载 LAM ZIP。默认本地路径在 Worker 中推理 TTS 音频，无需 Avatar FastAPI（见 [Mac 本地 LAM](lam-local.md)）。配置 `renderer.driver: remote` 后改用 Avatar provider 的 GPU 服务，保留角色原有资产地址。
 
 远程 LAM 的同源入口为 `GET/POST /api/sessions/{id}/driver`。GET 向 provider 请求 `operation: health`，POST 请求 `operation: infer_window`，输入为 34133 个 16 kHz 单声道 `pcm_f32le` 采样的 `audio_base64`。后端返回 64 × 52 的帧优先 `weights`，通道顺序由健康检查的 `names` 给出；浏览器只使用新增音频对应的后缀帧。此模式不创建本地模型 Worker，也跳过普通 `animate` 分包调用。重置中止 HTTP 等待并丢弃过期结果；已经启动的 GPU 算子可能继续完成。部署见 [data2 模型服务](data2-models.md)。
+
+口型驱动连接失败不禁用麦克风。动作准备失败时，当前轮仍可播放真实 TTS 音频，过期轮继续受播放 generation 过滤；失败动作清空且不报告音画同步。用户显式重连会重新校验驱动格式并清空旧动作上下文；不回退加载本地 ONNX。
 
 `scene` 在浏览器 Three.js 中加载 GLB/VRM，资源需允许 CORS；本地资产通过 CLI 注册，或浏览器直接读取 File 而不上传。`iframe` 服务需允许嵌入；当前只确认页面加载，完整专用客户端的数据 / 音频通道仍要适配。`video` 使用原生播放器，只接受浏览器支持的传输格式；不能把 `webrtc://` 或 RTMP 地址直接赋给 video.src，WebRTC 使用专用页面 / 信令适配器。
 
@@ -185,7 +195,7 @@ Go 将 TTS 的真实最终音频送给 `operation: animate`：
 
 ## 桌面延迟统计
 
-日常界面仅显示整体响应时间与音画状态。以下分项、驱动读数和配置面板仅在 Vite 开发模式显示，不出现在默认 Go 用户页面；固定七类情绪演示位于独立的 `/demo/emotions` 页面。
+日常界面的性能栏仅显示整体响应时间与音画状态；分项性能和 provider 配置仍只在 Vite 开发模式显示。用户可通过 `/` 菜单展示表情，或打开“部位调节”查看和调整面部、头部。固定七类情绪演示位于独立的 `/demo/emotions` 页面。
 
 底栏显示本轮首次观测，不用预估值填充；没有数据时显示“—”，新轮或新会话清空，停止后保留已测值并拒绝旧轮补写。
 
@@ -199,3 +209,7 @@ Go 将 TTS 的真实最终音频送给 `operation: animate`：
 若模型遗漏 `<speak/>` 标记，工具可用时仍等待完整回答确认没有工具调用，再记录 LLM Delay 并送入 TTS；不会把工具前言当作首个有效回答，也不会用整轮生成耗时补造计时。
 
 语音合成与模型生成可以重叠；Total 还包括 VAD、ASR、分段、排队和网络等，因此不要求三个分项之和等于 Total。音画确认另保留“已同步／待确认”状态，hover 可查实际音画反馈时间。
+
+## 单次 LLM 参数与并行支持
+
+`Bus.LLMWithOptions` 提供只作用于本次请求的 `DisableThinking`、`MaxTokens`。仅在 provider 已配置 `enable_thinking` 扩展时关闭该开关并移除本次 `reasoning_effort`；输出上限服从本次和已配置上限中的较小值。不会修改共享配置或影响并行的普通对话。当前支持路径用它并行做风险检查与候选生成，再做一次审校；必要工具仍在独立风险放行后才执行。原有 `LLM` 接口保持默认行为。详见 [提速验收](intervention-speed-20261031.md)。

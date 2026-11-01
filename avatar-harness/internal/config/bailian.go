@@ -23,7 +23,7 @@ func BailianProviders(workspace string) (map[string]Provider, error) {
 		host = workspace + ".cn-beijing.maas.aliyuncs.com"
 	}
 	return map[string]Provider{
-		"llm": {Kind: "openai", BaseURL: "https://" + host + "/compatible-mode/v1", Model: BailianLLMModel, APIKeyEnv: BailianKeyEnv, Streaming: true, TimeoutMS: 15000, Parameters: map[string]any{"enable_thinking": false, "max_tokens": 512}},
+		"llm": {Kind: "openai", BaseURL: "https://" + host + "/compatible-mode/v1", Model: BailianLLMModel, APIKeyEnv: BailianKeyEnv, Streaming: true, TimeoutMS: 20000, Parameters: map[string]any{"enable_thinking": true, "reasoning_effort": "low", "max_tokens": 2048}},
 		"asr": {Kind: "bailian", BaseURL: "wss://" + host + "/api-ws/v1/realtime", Model: BailianASRModel, APIKeyEnv: BailianKeyEnv, Streaming: true, TimeoutMS: 15000, Parameters: map[string]any{"language": "zh"}},
 		"tts": {Kind: "bailian", BaseURL: "wss://" + host + "/api-ws/v1/inference", Model: BailianTTSModel, APIKeyEnv: BailianKeyEnv, Streaming: true, TimeoutMS: 15000, Parameters: map[string]any{"voice": BailianTTSVoice, "language_hints": []string{"zh"}, "sample_rate": 24000}},
 	}, nil

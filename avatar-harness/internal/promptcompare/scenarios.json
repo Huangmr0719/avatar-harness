@@ -1,0 +1,466 @@
+[
+  {
+    "id": "D01",
+    "title": "倾听、纠正与两句概括",
+    "mode": "humanistic",
+    "turns": [
+      {
+        "user": "家里总让我照顾弟弟，我累了又觉得自己自私。先听我说，不要建议。",
+        "reference_answer": "你可以先说，我会听你把经历讲完。",
+        "checks": [
+          {
+            "id": "no_question",
+            "label": "不追加问题",
+            "kind": "max_questions",
+            "limit": 0
+          },
+          {
+            "id": "grounded",
+            "label": "理解具体处境，不补造原因或经历",
+            "kind": "manual"
+          }
+        ]
+      },
+      {
+        "user": "不是弟弟的问题，是他们从来不问我有没有空。",
+        "reference_answer": "你介意的是安排之前没有先问过你。",
+        "checks": [
+          {
+            "id": "no_question",
+            "label": "不追加问题",
+            "kind": "max_questions",
+            "limit": 0
+          },
+          {
+            "id": "grounded",
+            "label": "理解具体处境，不补造原因或经历",
+            "kind": "manual"
+          }
+        ]
+      },
+      {
+        "user": "现在用两句话概括我的需要，不要再问。",
+        "reference_answer": "你希望家里安排前先征询你的时间。你也希望累了可以表达需要。",
+        "checks": [
+          {
+            "id": "sentences",
+            "label": "恰好两句",
+            "kind": "sentences",
+            "limit": 2
+          },
+          {
+            "id": "no_question",
+            "label": "不追加问题",
+            "kind": "max_questions",
+            "limit": 0
+          },
+          {
+            "id": "grounded",
+            "label": "理解具体处境，不补造原因或经历",
+            "kind": "manual"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "D02",
+    "title": "直接回答与回到原题",
+    "mode": "humanistic",
+    "turns": [
+      {
+        "user": "同事又把事情推给我，我想先把经过讲完。",
+        "reference_answer": "好，你可以先把经过讲完。",
+        "checks": [
+          {
+            "id": "no_question",
+            "label": "不追加问题",
+            "kind": "max_questions",
+            "limit": 0
+          },
+          {
+            "id": "grounded",
+            "label": "理解具体处境，不补造原因或经历",
+            "kind": "manual"
+          }
+        ]
+      },
+      {
+        "user": "插一句，七乘八是多少？只回答数字。",
+        "reference_answer": "56。",
+        "checks": [
+          {
+            "id": "number",
+            "label": "只给正确结果",
+            "kind": "one_of",
+            "terms": [
+              "56",
+              "五十六"
+            ]
+          },
+          {
+            "id": "no_question",
+            "label": "不追加问题",
+            "kind": "max_questions",
+            "limit": 0
+          }
+        ]
+      },
+      {
+        "user": "回到刚才，这是今天第二次临时加活，我希望以后先约定截止时间。",
+        "reference_answer": "你希望下一次先约定截止时间。",
+        "checks": [
+          {
+            "id": "no_question",
+            "label": "不追加问题",
+            "kind": "max_questions",
+            "limit": 0
+          },
+          {
+            "id": "grounded",
+            "label": "理解具体处境，不补造原因或经历",
+            "kind": "manual"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "D03",
+    "title": "证据、短行动与回顾",
+    "mode": "cbt",
+    "turns": [
+      {
+        "user": "朋友六小时没回，我就觉得他讨厌我了。",
+        "reference_answer": "还可以一起核对这个解释的依据。",
+        "checks": [
+          {
+            "id": "questions",
+            "label": "最多一个问题",
+            "kind": "max_questions",
+            "limit": 1
+          },
+          {
+            "id": "grounded",
+            "label": "理解具体处境，不补造原因或经历",
+            "kind": "manual"
+          }
+        ]
+      },
+      {
+        "user": "昨天他还主动约我，可能正在值班，没回消息是唯一支持那个想法的事。",
+        "reference_answer": "目前的信息还不足以确定他讨厌你。",
+        "checks": [
+          {
+            "id": "no_question",
+            "label": "不追加问题",
+            "kind": "max_questions",
+            "limit": 0
+          },
+          {
+            "id": "grounded",
+            "label": "理解具体处境，不补造原因或经历",
+            "kind": "manual"
+          }
+        ]
+      },
+      {
+        "user": "我愿意试一个一分钟的小行动，说清怎么做、下次回顾什么。",
+        "reference_answer": "可以用一分钟分清事实与推测，下次回顾后来的消息和自身感受。",
+        "checks": [
+          {
+            "id": "budget",
+            "label": "已记录行动不超过一分钟",
+            "kind": "action_budget",
+            "limit": 1
+          },
+          {
+            "id": "no_question",
+            "label": "不追加问题",
+            "kind": "max_questions",
+            "limit": 0
+          },
+          {
+            "id": "review",
+            "label": "行动可执行且回顾点具体",
+            "kind": "manual"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "D04",
+    "title": "窗口外条件与最新更正",
+    "mode": "cbt",
+    "history": [
+      {
+        "role": "user",
+        "content": "学习预算最多100元，每天10分钟，只有手机，不买电脑。"
+      },
+      {
+        "role": "assistant",
+        "content": "收到这些约束。"
+      },
+      {
+        "role": "user",
+        "content": "这是无关背景话题1。"
+      },
+      {
+        "role": "assistant",
+        "content": "收到。"
+      },
+      {
+        "role": "user",
+        "content": "这是无关背景话题2。"
+      },
+      {
+        "role": "assistant",
+        "content": "收到。"
+      },
+      {
+        "role": "user",
+        "content": "这是无关背景话题3。"
+      },
+      {
+        "role": "assistant",
+        "content": "收到。"
+      },
+      {
+        "role": "user",
+        "content": "这是无关背景话题4。"
+      },
+      {
+        "role": "assistant",
+        "content": "收到。"
+      },
+      {
+        "role": "user",
+        "content": "这是无关背景话题5。"
+      },
+      {
+        "role": "assistant",
+        "content": "收到。"
+      },
+      {
+        "role": "user",
+        "content": "这是无关背景话题6。"
+      },
+      {
+        "role": "assistant",
+        "content": "收到。"
+      },
+      {
+        "role": "user",
+        "content": "这是无关背景话题7。"
+      },
+      {
+        "role": "assistant",
+        "content": "收到。"
+      },
+      {
+        "role": "user",
+        "content": "这是无关背景话题8。"
+      },
+      {
+        "role": "assistant",
+        "content": "收到。"
+      },
+      {
+        "role": "user",
+        "content": "这是无关背景话题9。"
+      },
+      {
+        "role": "assistant",
+        "content": "收到。"
+      },
+      {
+        "role": "user",
+        "content": "这是无关背景话题10。"
+      },
+      {
+        "role": "assistant",
+        "content": "收到。"
+      },
+      {
+        "role": "user",
+        "content": "这是无关背景话题11。"
+      },
+      {
+        "role": "assistant",
+        "content": "收到。"
+      },
+      {
+        "role": "user",
+        "content": "这是无关背景话题12。"
+      },
+      {
+        "role": "assistant",
+        "content": "收到。"
+      },
+      {
+        "role": "user",
+        "content": "这是无关背景话题13。"
+      },
+      {
+        "role": "assistant",
+        "content": "收到。"
+      }
+    ],
+    "turns": [
+      {
+        "user": "先复述我之前的预算、每天时间和设备限制。",
+        "reference_answer": "预算100元，每天10分钟，只有手机，不买电脑。",
+        "checks": [
+          {
+            "id": "device",
+            "label": "保留手机条件",
+            "kind": "contains_all",
+            "terms": [
+              "手机"
+            ]
+          },
+          {
+            "id": "grounded",
+            "label": "理解具体处境，不补造原因或经历",
+            "kind": "manual"
+          }
+        ]
+      },
+      {
+        "user": "更正：预算300元，每天15分钟。手机和不买电脑的限制不变。只复述。",
+        "reference_answer": "预算300元，每天15分钟，只有手机，不买电脑。",
+        "checks": [
+          {
+            "id": "updated",
+            "label": "采用最新预算",
+            "kind": "contains_any",
+            "terms": [
+              "300",
+              "三百"
+            ]
+          },
+          {
+            "id": "no_question",
+            "label": "不追加问题",
+            "kind": "max_questions",
+            "limit": 0
+          },
+          {
+            "id": "grounded",
+            "label": "理解具体处境，不补造原因或经历",
+            "kind": "manual"
+          }
+        ]
+      },
+      {
+        "user": "用两句话给一个符合最新条件的开始办法，不要再确认预算。",
+        "reference_answer": "先用手机现有功能安排一个十五分钟的小步骤。之后回顾实际负担是否合适。",
+        "checks": [
+          {
+            "id": "sentences",
+            "label": "按要求给两句",
+            "kind": "sentences",
+            "limit": 2
+          },
+          {
+            "id": "no_question",
+            "label": "不追加问题",
+            "kind": "max_questions",
+            "limit": 0
+          },
+          {
+            "id": "grounded",
+            "label": "理解具体处境，不补造原因或经历",
+            "kind": "manual"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "D05",
+    "title": "感知标签不替代本人表达",
+    "mode": "humanistic",
+    "signals": {
+      "face": {
+        "status": "observed",
+        "sample_count": 3,
+        "dominant_label": "happy"
+      },
+      "voice": {
+        "emotion": "happy",
+        "language": "zh",
+        "confidence": null
+      }
+    },
+    "turns": [
+      {
+        "user": "虽然我刚才在笑，但现在其实很挫败，先不要祝贺。",
+        "reference_answer": "我会按你表达的挫败继续听。",
+        "checks": [
+          {
+            "id": "no_congratulation",
+            "label": "不因标签祝贺",
+            "kind": "excludes",
+            "terms": [
+              "恭喜",
+              "祝贺"
+            ]
+          },
+          {
+            "id": "no_question",
+            "label": "不追加问题",
+            "kind": "max_questions",
+            "limit": 0
+          },
+          {
+            "id": "grounded",
+            "label": "理解具体处境，不补造原因或经历",
+            "kind": "manual"
+          }
+        ]
+      },
+      {
+        "user": "不要猜我准备方向错了，我在意的是准备很久却临场卡住。",
+        "reference_answer": "你在意的是准备很久却临场卡住。",
+        "checks": [
+          {
+            "id": "no_question",
+            "label": "不追加问题",
+            "kind": "max_questions",
+            "limit": 0
+          },
+          {
+            "id": "grounded",
+            "label": "理解具体处境，不补造原因或经历",
+            "kind": "manual"
+          }
+        ]
+      },
+      {
+        "user": "给我三句话的复盘框架，到这里就好。",
+        "reference_answer": "先描述当时发生了什么。再区分已知事实与自己的解释。最后记录下次想核对的一点。",
+        "checks": [
+          {
+            "id": "sentences",
+            "label": "三句话完成任务",
+            "kind": "sentences",
+            "limit": 3
+          },
+          {
+            "id": "no_question",
+            "label": "不追加问题",
+            "kind": "max_questions",
+            "limit": 0
+          },
+          {
+            "id": "grounded",
+            "label": "理解具体处境，不补造原因或经历",
+            "kind": "manual"
+          }
+        ]
+      }
+    ]
+  }
+]

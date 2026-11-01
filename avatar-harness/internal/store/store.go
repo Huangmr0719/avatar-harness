@@ -13,6 +13,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"avatarharness/internal/intervention"
 )
 
 type Session struct {
@@ -30,24 +32,28 @@ type Event struct {
 	Data      map[string]any `json:"data"`
 }
 type record struct {
-	Kind      string           `json:"kind"`
-	Session   *Session         `json:"session,omitempty"`
-	Event     *Event           `json:"event,omitempty"`
-	SessionID string           `json:"session_id,omitempty"`
-	Messages  []map[string]any `json:"messages,omitempty"`
+	Kind         string              `json:"kind"`
+	Session      *Session            `json:"session,omitempty"`
+	Event        *Event              `json:"event,omitempty"`
+	SessionID    string              `json:"session_id,omitempty"`
+	Messages     []map[string]any    `json:"messages,omitempty"`
+	Memory       *SessionMemory      `json:"memory,omitempty"`
+	Intervention *intervention.State `json:"intervention,omitempty"`
 }
 type Store struct {
-	mu        sync.Mutex
-	sessions  map[string]Session
-	events    map[string][]Event
-	history   map[string][]map[string]any
-	subs      map[string]map[chan Event]bool
-	seq       int64
-	file      *os.File
-	writer    *bufio.Writer
-	done      chan struct{}
-	flushed   chan struct{}
-	lastError error
+	mu            sync.Mutex
+	sessions      map[string]Session
+	events        map[string][]Event
+	history       map[string][]map[string]any
+	memories      map[string]SessionMemory
+	interventions map[string]intervention.State
+	subs          map[string]map[chan Event]bool
+	seq           int64
+	file          *os.File
+	writer        *bufio.Writer
+	done          chan struct{}
+	flushed       chan struct{}
+	lastError     error
 }
 
 func ID() string { var b [12]byte; _, _ = rand.Read(b[:]); return hex.EncodeToString(b[:]) }
@@ -56,7 +62,7 @@ func Open(dir string) (*Store, error) {
 		return nil, err
 	}
 	path := filepath.Join(dir, "sessions.jsonl")
-	s := &Store{sessions: map[string]Session{}, events: map[string][]Event{}, history: map[string][]map[string]any{}, subs: map[string]map[chan Event]bool{}, done: make(chan struct{}), flushed: make(chan struct{})}
+	s := &Store{sessions: map[string]Session{}, events: map[string][]Event{}, history: map[string][]map[string]any{}, memories: map[string]SessionMemory{}, interventions: map[string]intervention.State{}, subs: map[string]map[chan Event]bool{}, done: make(chan struct{}), flushed: make(chan struct{})}
 	if raw, err := os.Open(path); err == nil {
 		scanner := bufio.NewScanner(raw)
 		scanner.Buffer(make([]byte, 8192), 8<<20)
@@ -124,9 +130,20 @@ func (s *Store) restore(r record) {
 		}
 	case "history":
 		s.history[r.SessionID] = append(s.history[r.SessionID], r.Messages...)
+	case "intervention":
+		if r.Intervention != nil {
+			s.interventions[r.SessionID] = r.Intervention.Clone()
+			s.history[r.SessionID] = append(s.history[r.SessionID], r.Messages...)
+		}
+	case "memory":
+		if r.Memory != nil {
+			s.memories[r.SessionID] = *r.Memory
+		}
 	case "clear":
 		delete(s.history, r.SessionID)
 		delete(s.events, r.SessionID)
+		delete(s.memories, r.SessionID)
+		delete(s.interventions, r.SessionID)
 	}
 }
 func (s *Store) append(r record) {
@@ -249,6 +266,10 @@ func (s *Store) History(sid string, limit int) []map[string]any {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	all := s.history[sid]
+	start := historyStart(all, limit)
+	return append([]map[string]any{}, all[start:]...)
+}
+func historyStart(all []map[string]any, limit int) int {
 	start := len(all) - limit
 	if start < 0 {
 		start = 0
@@ -256,13 +277,15 @@ func (s *Store) History(sid string, limit int) []map[string]any {
 	for start < len(all) && all[start]["role"] != "user" {
 		start++
 	}
-	return append([]map[string]any{}, all[start:]...)
+	return start
 }
 func (s *Store) Clear(sid string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.events, sid)
 	delete(s.history, sid)
+	delete(s.memories, sid)
+	delete(s.interventions, sid)
 	s.append(record{Kind: "clear", SessionID: sid})
 }
 func (s *Store) Error() error { s.mu.Lock(); defer s.mu.Unlock(); return s.lastError }

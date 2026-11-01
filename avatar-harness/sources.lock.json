@@ -114,5 +114,60 @@
     },
     "license_boundary": "Preserve upstream code, weight and third-party asset licences separately; LAM/LHM LICENSE_WEIGHT includes non-commercial limits.",
     "checks": "docs/data2-models.md"
+  },
+  "LibreFace": {
+    "repository": "https://github.com/ihp-lab/LibreFace",
+    "revision": "b98b2598f2ef14979f17a71b8fd280326d4d9748",
+    "license": "USC Research (non-commercial)",
+    "license_file": "integrations/licenses/LibreFace-LICENSE",
+    "integration": "Resident LibreFace 2.0 (FG 2026) RepVGG AU intensity provider using the existing data2 installation. Categorical FER remains EmotiEffNet-B2; the old joint-ResNet AU-presence head is no longer invoked.",
+    "au_intensity_weights": {
+      "upstream_path": "AU_Recognition/new_checkpoints_fm_repvgg/DISFA/all/repvgg.pt",
+      "release_commit": "b98b2598f2ef14979f17a71b8fd280326d4d9748",
+      "server_filename": "libreface_weights/AU_Recognition/weights/repvgg_fm2026.pt",
+      "sha256": "6b50fa3421de494fa6c4325477716b652878a27242ab37976d492e4c9fa0d8f5",
+      "bytes": 38983600,
+      "model": "RepVGG-A0, 12 AU regression outputs",
+      "scale": "upstream image_inference: output * 5, clamp to [0,5]",
+      "verification": "Server copy is SHA256-identical to the tracked upstream research checkpoint; strict state_dict load, eval mode, reference preprocessing parity on 8 public image/video frames. Not a webcam accuracy benchmark."
+    },
+    "fer_weights": {
+      "upstream_google_drive_id": "1yPBUjPhkwcIkRLt47-JJRLRD7rCwPIVU",
+      "sha256": "bcf48160b13b881ea9a7a67080b2d0177b1ce0a1ea4845ca74c24eeb728e6b2d",
+      "legacy_only": true
+    }
+  },
+  "EmotiEffNet-B0": {
+    "repository": "https://github.com/sb-ai-lab/EmotiEffLib",
+    "revision": "520a051c64cd191521e5934655314e769a319684",
+    "model": "enet_b0_8_best_vgaf",
+    "format": "onnx",
+    "bytes": 16039595,
+    "sha256": "fa07e841fd06c7a67ee651ea4e6e4a3a2bb5695f47b37a7da50492526f59c898",
+    "license": "Apache-2.0",
+    "license_file": "integrations/licenses/EmotiEffLib-LICENSE",
+    "integration": "External CPU categorical expression classifier; upstream RGB normalization and eight-class order; MTCNN face rectangles",
+    "deployment": "optional lighter profile via EMOTION_MODEL"
+  },
+  "facenet-pytorch": {
+    "repository": "https://github.com/timesler/facenet-pytorch",
+    "version": "2.6.0",
+    "license": "MIT",
+    "license_file": "integrations/licenses/facenet-pytorch-LICENSE",
+    "wheel_sha256": "ecb82b27beb226d106f2219efe8f829b01b87a8595badd01545679bdb9f19cca",
+    "integration": "MTCNN in service-private python-packages, no shared environment modification"
+  },
+  "EmotiEffNet-B2": {
+    "repository": "https://github.com/sb-ai-lab/EmotiEffLib",
+    "revision": "520a051c64cd191521e5934655314e769a319684",
+    "model": "enet_b2_8",
+    "format": "onnx",
+    "bytes": 30779724,
+    "sha256": "180a9d4845b59393de4511598a0d1d34b705034691ea32959ce5009db7cf52b7",
+    "license": "Apache-2.0",
+    "license_file": "integrations/licenses/EmotiEffLib-LICENSE",
+    "integration": "External CPU categorical expression classifier; upstream RGB normalization and eight-class order; MTCNN face rectangles",
+    "input_size": 260,
+    "deployment": "default at 1 frame/sec"
   }
 }

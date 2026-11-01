@@ -54,6 +54,9 @@ func (b *Bus) bailian(ctx context.Context, role string, p config.Provider, input
 		return result, realtimeError(ctx, err)
 	}
 	if isQwenAudioTTS(p) {
+		if err := b.ttsPacer.wait(ctx); err != nil {
+			return Result{}, err
+		}
 		result, err := qwenAudioTTS(conn, p, input, emit)
 		return result, realtimeError(ctx, err)
 	}

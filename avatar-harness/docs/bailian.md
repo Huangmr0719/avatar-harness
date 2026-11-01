@@ -10,7 +10,7 @@
 ./start
 ```
 
-向导可配置业务空间 ID、三个模型 ID、默认音色和一份隐藏输入的 API Key。默认分别为 `deepseek-v4.1-flash-1017`、`qwen3-asr-flash-realtime`、`qwen-audio-3.1-tts-flash`，默认音色 `longanhuan_v3.1`。DeepSeek 使用 `enable_thinking: false`；角色单独配置的 `voice` 优先于默认音色。
+向导可配置业务空间 ID、三个模型 ID、默认音色和一份隐藏输入的 API Key。默认分别为 `deepseek-v4.1-flash-1017`、`qwen3-asr-flash-realtime`、`qwen-audio-3.1-tts-flash`，默认音色 `longanhuan_v3.1`。DeepSeek 使用 `enable_thinking: true`、`reasoning_effort: low`；思考字段在服务端丢弃，页面和 TTS 只接收最终正文（本轮配置与测量见[摄像头与情绪](camera-perception.md)）；角色单独配置的 `voice` 优先于默认音色。
 
 2026-10-29 核对百炼官方发布列表后，按用户要求选用 2026-10-17 发布的最新 DeepSeek Flash 快照，未改回千问。修改配置、密钥或可执行文件后再次 `./start`，会自动停止旧进程并加载更新，避免旧进程继续显示缺少密钥。
 

@@ -115,6 +115,54 @@ func TestStructuredAnswerRejectsIncompleteJSONAndPreservesLegacyText(t *testing.
 	}
 }
 
+func TestStructuredAnswerNormalizesLiteralWhitespaceAcrossChunks(t *testing.T) {
+	speech := "<speak/>第一行。\n第二行\"引号\"\t路径\\folder\r\n结尾。"
+	encoded, _ := json.Marshal(map[string]any{"emotion": "neutral", "intensity": 0.1, "speech": speech})
+	raw := strings.ReplaceAll(string(encoded), `\n`, "\n")
+	raw = strings.ReplaceAll(raw, `\r`, "\r")
+	raw = strings.ReplaceAll(raw, `\t`, "\t")
+	raw = "{\n" + raw[1:]
+	for split := 0; split <= len(raw); split++ {
+		parser := StructuredAnswer{Enabled: true}
+		first, _, err := parser.Feed(raw[:split], false)
+		if err != nil {
+			t.Fatalf("split %d: %v", split, err)
+		}
+		last, _, err := parser.Feed(raw[split:], true)
+		if err != nil || first+last != speech || !json.Valid([]byte(parser.HistoryContent(first+last))) {
+			t.Fatalf("split %d: speech=%q error=%v", split, first+last, err)
+		}
+	}
+	parser := StructuredAnswer{Enabled: true}
+	var output strings.Builder
+	for i := range len(raw) {
+		part, _, err := parser.Feed(raw[i:i+1], false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		output.WriteString(part)
+	}
+	if _, _, err := parser.Feed("", true); err != nil || output.String() != speech {
+		t.Fatal(output.String(), err)
+	}
+}
+
+func TestStructuredAnswerKeepsLegacyHistoryInRequestedFormat(t *testing.T) {
+	parser := StructuredAnswer{Enabled: true}
+	text, expression, err := parser.Feed("<speak/>旧 provider 的正文", true)
+	if err != nil || expression != nil || text != "<speak/>旧 provider 的正文" {
+		t.Fatal(text, expression, err)
+	}
+	var history map[string]any
+	if err := json.Unmarshal([]byte(parser.HistoryContent("旧 provider 的正文")), &history); err != nil || history["speech"] != text || len(history) != 3 {
+		t.Fatal(history, err)
+	}
+	plain := StructuredAnswer{}
+	if plain.HistoryContent("纯文本") != "纯文本" {
+		t.Fatal("non-structured history changed")
+	}
+}
+
 func TestStructuredReplyStartsTTSBeforeJSONEndsWithoutExtraLLM(t *testing.T) {
 	c := config.Default()
 	c.Characters[0].Renderer = config.Renderer{Kind: "lam", AssetURL: "/models/lam/avatar.zip"}

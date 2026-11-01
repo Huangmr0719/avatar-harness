@@ -30,7 +30,7 @@ func TestBailianVoiceEntryToolLoopAndStreamingAudio(t *testing.T) {
 			llmCalls.Add(1)
 			var body map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&body)
-			if body["enable_thinking"] != false || body["model"] != config.BailianLLMModel {
+			if body["enable_thinking"] != true || body["reasoning_effort"] != "low" || body["model"] != config.BailianLLMModel {
 				t.Error("Bailian LLM preset was not applied", body)
 			}
 			w.Header().Set("Content-Type", "text/event-stream")

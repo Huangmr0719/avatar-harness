@@ -28,10 +28,11 @@
       "model": "deepseek-v4.1-flash-1017",
       "api_key_env": "DASHSCOPE_API_KEY",
       "streaming": true,
-      "timeout_ms": 15000,
+      "timeout_ms": 20000,
       "parameters": {
-        "enable_thinking": false,
-        "max_tokens": 512
+        "enable_thinking": true,
+        "reasoning_effort": "low",
+        "max_tokens": 2048
       }
     },
     "tts": {
@@ -95,7 +96,8 @@
       "renderer": {
         "kind": "lam",
         "driver": "remote",
-        "asset_url": "/models/lam/avatar.zip"
+        "asset_url": "/models/lam/avatar.zip",
+        "speech_jaw_max": 0.32
       }
     },
     {
@@ -114,6 +116,12 @@
       }
     }
   ],
+  "perception": {
+    "kind": "fastapi",
+    "base_url": "http://127.0.0.1:18769",
+    "streaming": false,
+    "timeout_ms": 3000
+  },
   "limits": {
     "first_response_ms": 3000,
     "tool_batch_ms": 500,

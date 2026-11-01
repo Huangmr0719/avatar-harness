@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -eu
+service_root=${AVATAR_SERVICE_ROOT:-/data2/huangmr/code/avatar-harness}
+export CUDA_VISIBLE_DEVICES=${AVATAR_GPU:-3}
+export OMP_NUM_THREADS=2
+export LIBREFACE_ROOT=${LIBREFACE_ROOT:-/data2/huangmr/code/LibreFace}
+cd "$service_root/services/libreface"
+exec /data2/huangmr/envs/au_gen/bin/python -m uvicorn app:app --host 127.0.0.1 --port "${AVATAR_PORT:-18769}" --workers 1 --no-access-log
