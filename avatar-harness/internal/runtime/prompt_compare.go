@@ -432,6 +432,8 @@ func consumeComparisonEvent(l *pc.Leg, e store.Event, started time.Time) {
 		l.Phases = append(l.Phases, pc.Phase{Name: provider.String(e.Data["phase"]), OK: e.Data["ok"] == true, ElapsedMS: provider.Number(e.Data["elapsed_ms"])})
 	case "intervention.fallback":
 		l.Fallback = true
+		l.FallbackReason = provider.String(e.Data["reason"])
+		l.FallbackDetail = provider.String(e.Data["detail"])
 	case "intervention.partial":
 		l.Error = "仅放行了部分回答"
 	case "turn.error":

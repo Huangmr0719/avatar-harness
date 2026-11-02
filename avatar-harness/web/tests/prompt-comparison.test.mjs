@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {acceptComparison,formatMS,median,summarizeComparison,customScenario,newTurnDraft,reviewKey} from '../src/promptComparison.ts'
+import {acceptComparison,formatMS,median,summarizeComparison,customScenario,newTurnDraft,reviewKey,checkScope} from '../src/promptComparison.ts'
 const leg=(extra={})=>({variant:'legacy',status:'completed',text:'真实回答',revisions:1,repair_requests:0,requests:2,fallback:false,first_text_ms:1000,completion_ms:1200,candidate_checks:[{status:'fail'},{status:'manual'}],checks:[{status:'pass'},{status:'manual'}],...extra})
 test('late snapshots cannot replace a different or newer comparison',()=>{
  const current={id:'live',revision:4,rounds:[]}
@@ -20,4 +20,10 @@ test('latency excludes missing observations and preserves actual zero',()=>{asse
 test('custom turns preserve fixed reference answers and explicit acceptance rules',()=>{
  const d={...newTurnDraft(),user:'  请概括  ',reference:'共同确认。',questions:0,sentences:2,required:'手机、500',forbidden:'电脑'}
  const s=customScenario('我的对照','cbt',[d]);assert.equal(s.turns[0].user,'请概括');assert.equal(s.turns[0].reference_answer,'共同确认。');assert.deepEqual(s.turns[0].checks.find(c=>c.kind==='contains_all').terms,['手机','500']);assert.equal(s.turns[0].checks.at(-1).kind,'manual');assert.notEqual(reviewKey(1,'legacy','candidate','x'),reviewKey(1,'current','final','x'))
+})
+test('format, lexical rules, action records, safety and semantic review remain separate',()=>{
+ const checks=[{kind:'sentences',status:'pass'},{kind:'excludes',status:'fail'},{kind:'action_budget',status:'fail'},{kind:'risk_is',status:'pass'},{kind:'manual',status:'manual'}]
+ const s=summarizeComparison({rounds:[{conditions_match:true,legacy:leg({checks})}]},'legacy')
+ assert.deepEqual(s.groups.format,{pass:1,total:1});assert.deepEqual(s.groups.literal,{pass:0,total:1});assert.deepEqual(s.groups.record,{pass:0,total:1});assert.deepEqual(s.groups.safety,{pass:1,total:1});assert.equal(s.manual,1);assert.equal(s.groups.semantic.total,0)
+ assert.equal(checkScope({kind:'manual'}),'semantic')
 })

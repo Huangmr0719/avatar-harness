@@ -1,7 +1,8 @@
 export type VariantID = 'legacy' | 'current'
 export type CheckStatus = 'pass' | 'fail' | 'manual' | 'not_run'
 export interface ComparisonCheck { id: string; label: string; kind: string; terms?: string[]; limit?: number }
-export interface CheckResult extends ComparisonCheck { status: CheckStatus; detail: string }
+export type CheckScope = 'format' | 'literal' | 'record' | 'safety' | 'semantic'
+export interface CheckResult extends ComparisonCheck { status: CheckStatus; detail: string; scope?: CheckScope }
 export interface ComparisonMessage { role: 'user' | 'assistant'; content: string }
 export interface ComparisonTurn { user: string; reference_answer: string; checks: ComparisonCheck[] }
 export interface ComparisonScenario { id: string; title: string; mode: 'humanistic' | 'cbt' | 'mindfulness'; goal?: string; history?: ComparisonMessage[]; signals?: Record<string, unknown>; turns: ComparisonTurn[] }
@@ -28,6 +29,10 @@ export type Reviews = Record<string, 'pass' | 'fail'>
 export const variantNames: Record<VariantID, string> = { legacy: '旧版 System Prompt', current: '新版 System Prompt' }
 export const variantIDs: VariantID[] = ['legacy', 'current']
 export const checkNames: Record<CheckStatus, string> = { pass: '通过', fail: '未通过', manual: '待评阅', not_run: '未完成' }
+export const scopeNames: Record<CheckScope, string> = { format: '格式', literal: '词面', record: '行动记录', safety: '安全', semantic: '语义评阅' }
+export function checkScope(c: ComparisonCheck & { scope?: CheckScope }): CheckScope {
+  return c.scope ?? (c.kind === 'manual' ? 'semantic' : ['risk_is', 'state_is'].includes(c.kind) ? 'safety' : c.kind === 'action_budget' ? 'record' : ['sentences', 'max_questions', 'max_characters', 'one_of'].includes(c.kind) ? 'format' : 'literal')
+}
 export function formatMS(ms?: number) { return ms == null || !Number.isFinite(ms) ? '—' : `${(ms / 1000).toFixed(2)} 秒` }
 export function median(values: number[]): number | undefined {
   const sorted = values.filter(Number.isFinite).sort((a, b) => a - b)
@@ -41,7 +46,8 @@ export function acceptComparison(previous: ComparisonRun | null, incoming: Compa
 }
 export function reviewKey(round: number, variant: VariantID, stage: 'candidate' | 'final', check: string) { return `${round}:${variant}:${stage}:${check}` }
 export function summarizeComparison(run: ComparisonRun | null, variant: VariantID) {
-  const result = { completed: 0, errors: 0, fallbacks: 0, candidatePass: 0, candidateTotal: 0, finalPass: 0, finalTotal: 0, manual: 0, revisions: 0, repairs: 0, requests: 0, firstMS: undefined as number | undefined, completionMS: undefined as number | undefined }
+  const groups = Object.fromEntries(Object.keys(scopeNames).map(key => [key, { pass: 0, total: 0 }])) as Record<CheckScope, { pass: number; total: number }>
+  const result = { completed: 0, errors: 0, fallbacks: 0, candidatePass: 0, candidateTotal: 0, finalPass: 0, finalTotal: 0, manual: 0, revisions: 0, repairs: 0, requests: 0, groups, firstMS: undefined as number | undefined, completionMS: undefined as number | undefined }
   const first: number[] = [], complete: number[] = []
   for (const round of run?.rounds ?? []) {
     const leg = round[variant]
@@ -56,7 +62,10 @@ export function summarizeComparison(run: ComparisonRun | null, variant: VariantI
     for (const check of leg.candidate_checks ?? []) if (check.status === 'pass' || check.status === 'fail') { result.candidateTotal++; if (check.status === 'pass') result.candidatePass++ }
     for (const check of leg.checks ?? []) {
       if (check.status === 'manual') result.manual++
-      if (check.status === 'pass' || check.status === 'fail') { result.finalTotal++; if (check.status === 'pass') result.finalPass++ }
+      if (check.status === 'pass' || check.status === 'fail') {
+        const group = result.groups[checkScope(check)]; group.total++
+        result.finalTotal++; if (check.status === 'pass') { result.finalPass++; group.pass++ }
+      }
     }
   }
   result.firstMS = median(first); result.completionMS = median(complete)

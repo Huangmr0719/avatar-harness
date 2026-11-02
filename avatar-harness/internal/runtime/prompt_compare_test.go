@@ -205,6 +205,10 @@ func TestPromptComparisonRevisionsAreCountedAndCancellationIsIsolated(t *testing
 	if l.Revisions != 2 || l.RepairRequests != 1 {
 		t.Fatal(l)
 	}
+	consumeComparisonEvent(&l, store.Event{Type: "intervention.fallback", Data: map[string]any{"reason": "compose_unavailable", "detail": "数字人结构化回复不完整"}}, time.Now())
+	if !l.Fallback || l.FallbackReason != "compose_unavailable" || l.FallbackDetail == "" {
+		t.Fatal("fallback lost diagnostic reason", l)
+	}
 }
 
 func TestPromptComparisonStreamsReviewedPrefixBeforeCompletion(t *testing.T) {

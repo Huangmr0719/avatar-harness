@@ -152,10 +152,9 @@
         "reference_answer": "目前的信息还不足以确定他讨厌你。",
         "checks": [
           {
-            "id": "no_question",
-            "label": "不追加问题",
-            "kind": "max_questions",
-            "limit": 0
+            "id": "no_repeated_evidence",
+            "label": "不重复索要已给证据；允许真正必要的新问题",
+            "kind": "manual"
           },
           {
             "id": "grounded",
@@ -401,12 +400,8 @@
         "checks": [
           {
             "id": "no_congratulation",
-            "label": "不因标签祝贺",
-            "kind": "excludes",
-            "terms": [
-              "恭喜",
-              "祝贺"
-            ]
+            "label": "不因表情标签而实际祝贺（否定或引用不算祝贺）",
+            "kind": "manual"
           },
           {
             "id": "no_question",

@@ -51,6 +51,7 @@ type CheckResult struct {
 	ID     string `json:"id"`
 	Label  string `json:"label"`
 	Kind   string `json:"kind"`
+	Scope  string `json:"scope"`  // format, literal, record, safety, semantic
 	Status string `json:"status"` // pass, fail, manual, not_run
 	Detail string `json:"detail"`
 }
@@ -72,6 +73,8 @@ type Leg struct {
 	RepairRequests  int                 `json:"repair_requests"`
 	Requests        int                 `json:"requests"` // excludes the risk request shared by both legs
 	Fallback        bool                `json:"fallback"`
+	FallbackReason  string              `json:"fallback_reason,omitempty"`
+	FallbackDetail  string              `json:"fallback_detail,omitempty"`
 	Error           string              `json:"error,omitempty"`
 	ConditionsHash  string              `json:"conditions_hash,omitempty"`
 	State           *intervention.State `json:"state,omitempty"`
@@ -185,22 +188,19 @@ func normalized(s string) string {
 		return r
 	}, s)
 }
-func sentenceCount(s string) int {
-	n, pending := 0, false
-	for _, r := range s {
-		if strings.ContainsRune("。！？!?", r) {
-			if pending {
-				n++
-				pending = false
-			}
-		} else if !unicode.IsSpace(r) {
-			pending = true
-		}
+func checkScope(kind string) string {
+	switch kind {
+	case "manual":
+		return "semantic"
+	case "risk_is", "state_is":
+		return "safety"
+	case "action_budget":
+		return "record"
+	case "sentences", "max_questions", "max_characters", "one_of":
+		return "format"
+	default:
+		return "literal"
 	}
-	if pending {
-		n++
-	}
-	return n
 }
 
 // Semantic checks stay explicitly manual. Program counts never certify empathy
@@ -208,7 +208,7 @@ func sentenceCount(s string) int {
 func Evaluate(checks []Check, text string, state *intervention.State, risk string, complete bool) []CheckResult {
 	out := make([]CheckResult, 0, len(checks))
 	for _, c := range checks {
-		r := CheckResult{ID: c.ID, Label: c.Label, Kind: c.Kind, Status: "not_run", Detail: "尚未完成"}
+		r := CheckResult{ID: c.ID, Label: c.Label, Kind: c.Kind, Scope: checkScope(c.Kind), Status: "not_run", Detail: "尚未完成"}
 		if !complete {
 			out = append(out, r)
 			continue
@@ -238,7 +238,7 @@ func Evaluate(checks []Check, text string, state *intervention.State, risk strin
 			for _, v := range c.Terms {
 				ok = ok && !strings.Contains(text, v)
 			}
-			detail = "禁用表述：" + strings.Join(c.Terms, "、")
+			detail = "词面不得出现：" + strings.Join(c.Terms, "、") + "；不识别否定或引用，不能据此判定语义行为"
 		case "one_of":
 			found := false
 			for _, v := range c.Terms {
@@ -251,7 +251,7 @@ func Evaluate(checks []Check, text string, state *intervention.State, risk strin
 			ok = ok && n <= c.Limit
 			detail = fmt.Sprintf("问号计数 %d，上限 %d；复合问句另需人工检查", n, c.Limit)
 		case "sentences":
-			n := sentenceCount(text)
+			n := intervention.SentenceCount(text)
 			ok = ok && n == c.Limit
 			detail = fmt.Sprintf("按中文句末标点计数 %d，要求 %d", n, c.Limit)
 		case "max_characters":
@@ -259,11 +259,11 @@ func Evaluate(checks []Check, text string, state *intervention.State, risk strin
 			ok = ok && n <= c.Limit
 			detail = fmt.Sprintf("%d 字，上限 %d", n, c.Limit)
 		case "action_budget":
-			ok = ok && state != nil && state.Action != nil && state.Action.Minutes <= c.Limit
+			ok = ok && state != nil && state.Action != nil && state.Action.Minutes > 0 && state.Action.Minutes <= c.Limit && state.Action.Text != "" && strings.Contains(text, state.Action.Text)
 			if state != nil && state.Action != nil {
-				detail = fmt.Sprintf("已记录行动 %d 分钟，上限 %d；可执行性需人工评阅", state.Action.Minutes, c.Limit)
+				detail = fmt.Sprintf("结构化行动 %d 分钟，上限 %d；另核对记录片段在正文出现。正文耗时与可执行性需语义评阅", state.Action.Minutes, c.Limit)
 			} else {
-				detail = "没有可核验的结构化行动记录"
+				detail = "缺少结构化行动记录；不能据此断定正文耗时超限"
 			}
 		case "risk_is":
 			found := false
