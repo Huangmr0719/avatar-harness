@@ -22,6 +22,7 @@ export interface MediaHooks { clearMotion?: () => void; comparison?: (active: bo
 export function useHarness(options: { diagnostics?: boolean } = {}) {
   const state = ref<State | null>(null), sessions = ref<Session[]>([]), selected = ref<Session | null>(null)
   const entries = ref<Entry[]>([]), connected = ref(false), busy = ref(false), playing = ref(false), error = ref('')
+  const deletingCharacter = ref(false)
   const support = ref<SupportState>({ version: 0 }), supportPending = ref(false), practicePlaying = ref(false), practiceProgress = ref(0)
   let supportVideo: HTMLVideoElement | null = null, practiceTimer: ReturnType<typeof setInterval> | undefined, practiceClock: PracticeClock | null = null, practiceID = '', practiceGeneration = 0
   let supportQueue: Promise<unknown> = Promise.resolve()
@@ -332,6 +333,9 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
       case 'intervention.state':
         if (data.state) support.value = newerSupport(support.value, data.state)
         break
+      case 'characters.changed':
+        if (!replay) void refreshCharacters()
+        break
       case 'intervention.request':
         if (!replay && event.turn_id && activeTurn.value === event.turn_id && data.action === 'play_after_speech' && support.value.execution?.id === data.execution_id) practiceLaunch.schedule(event.turn_id, data.execution_id)
         break
@@ -413,10 +417,36 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
       if (!entries.value.length) notice('本地工具已就绪。')
     } catch (exc) { error.value = String(exc) }
   }
-  async function refreshCharacters() {
-    if (!state.value?.avatar_creator) return
-    try { state.value = await api<State>('/api/state') }
-    catch (exc) { notice(`角色列表更新失败：${String(exc)}`, 'error') }
+  let characterRefresh: Promise<void> | null = null
+  function refreshCharacters(): Promise<void> {
+    if (!state.value) return Promise.resolve()
+    if (characterRefresh) return characterRefresh
+    characterRefresh = (async () => {
+      try {
+        const next = await api<State>('/api/state')
+        state.value = next
+        const available = new Set(next.characters.map(ch => ch.id))
+        const fallback = next.characters[0]?.id
+        if (!fallback) return
+        sessions.value = sessions.value.map(session => available.has(session.character_id) ? session : { ...session, character_id: fallback })
+        const current = selected.value
+        if (current && !available.has(current.character_id)) await select({ ...current, character_id: fallback })
+      } catch (exc) { notice(`角色列表更新失败：${String(exc)}`, 'error') }
+    })().finally(() => { characterRefresh = null })
+    return characterRefresh
+  }
+  async function deleteCharacter(id: string) {
+    const target = state.value?.characters.find(ch => ch.id === id)
+    if (!target?.custom || deletingCharacter.value) return
+    deletingCharacter.value = true
+    try {
+      if (selected.value?.character_id === id) await stop()
+      const result = await api<{ deleted: boolean; warning?: string }>(`/api/characters/${encodeURIComponent(id)}`, { method: 'DELETE' })
+      notice(result.warning || `已删除形象“${target.name}”。`, result.warning ? 'error' : 'notice')
+    } finally {
+      await refreshCharacters()
+      deletingCharacter.value = false
+    }
   }
   const refreshOnFocus = () => { void refreshCharacters() }
   window.addEventListener('focus', refreshOnFocus)
@@ -494,5 +524,5 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
     catch (exc) { liveVoice.close(); if (generation === micGeneration && (exc as Error).name !== 'AbortError') { micState.value = 'error'; notice(deviceError(exc, '麦克风'), 'error') } }
   }
   onUnmounted(() => { stopPractice(false); if (selected.value) void api(`/api/sessions/${selected.value.id}/stop`, { method: 'POST' }).catch(() => {}); faceAnalysis.stop(); emotionDemo.cancel(); clearInterval(demoFacePoll); clearInterval(facePoll); latencyTracker.cancel(); expressionControl.cancel(); speechBatcher.reset(); liveVoice.close(); stream?.close(); asrAbort?.abort(); audio.stop(); cameraGeneration++; micGeneration++; cameraStream.value?.getTracks().forEach(track => track.stop()); void voice.stop(); timers.forEach(timer => clearTimeout(timer)) })
-  return { support, supportPending, practicePlaying, practiceProgress, changeSupport, startMindfulness, playPractice, stopPractice, finishPractice, practiceVideoError, bindSupportVideo: (value: HTMLVideoElement | null) => { supportVideo = value }, cameraVideo, analysisState, faceObservation, voiceEmotion, toggleAnalysis, demo, demoActive, toggleEmotionDemo, closeEmotionDemo, facePanelOpen, faceSupported, faceLive, faceOverrides, headSupported, headLive, headOverrides, toggleFacePanel, closeFacePanel, resetFace, setFaceChannel, setHeadAxis, previewBrow, listening, userSpeaking, latency, expressionState, setExpressionMode: (mode: string) => { resetFace(); expressionControl.setMode(mode) }, state, sessions, selected, entries, connected, busy, playing, error, duration, activeTurn, character, moduleStates, renderer, renderState, renderError, cameraStream, cameraState, micState, micLevel, liveTranscript, voiceConnectionState, feedback, mediaHooks, init, select, newSession, send, stop, clear, toggleCamera, toggleMic, resolveAvatar, setRenderer, setRenderStatus, notice }
+  return { deleteCharacter, deletingCharacter, support, supportPending, practicePlaying, practiceProgress, changeSupport, startMindfulness, playPractice, stopPractice, finishPractice, practiceVideoError, bindSupportVideo: (value: HTMLVideoElement | null) => { supportVideo = value }, cameraVideo, analysisState, faceObservation, voiceEmotion, toggleAnalysis, demo, demoActive, toggleEmotionDemo, closeEmotionDemo, facePanelOpen, faceSupported, faceLive, faceOverrides, headSupported, headLive, headOverrides, toggleFacePanel, closeFacePanel, resetFace, setFaceChannel, setHeadAxis, previewBrow, listening, userSpeaking, latency, expressionState, setExpressionMode: (mode: string) => { resetFace(); expressionControl.setMode(mode) }, state, sessions, selected, entries, connected, busy, playing, error, duration, activeTurn, character, moduleStates, renderer, renderState, renderError, cameraStream, cameraState, micState, micLevel, liveTranscript, voiceConnectionState, feedback, mediaHooks, init, select, newSession, send, stop, clear, toggleCamera, toggleMic, resolveAvatar, setRenderer, setRenderStatus, notice }
 }

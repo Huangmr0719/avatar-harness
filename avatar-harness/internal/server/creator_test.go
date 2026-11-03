@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -147,5 +149,73 @@ func TestCreatorProxyKeepsSingleOriginAndWebSocket(t *testing.T) {
 	var msg map[string]any
 	if err := ws.ReadJSON(&msg); err != nil || msg["msg"] != "send_hash" {
 		t.Fatal(msg, err)
+	}
+}
+
+func TestDeleteCustomAvatarCleansAssetPreservesOtherRolesAndSessions(t *testing.T) {
+	c := config.Default()
+	c.AvatarCreator = &config.AvatarCreator{BaseURL: "http://127.0.0.1:18767"}
+	a := setup(t, &c)
+	first := avatarZIP(t, "first/skin.glb", "first/offset.ply", "first/animation.glb")
+	second := avatarZIP(t, "second/skin.glb", "second/offset.ply", "second/animation.glb")
+	var deleted, retained config.Character
+	if err := json.Unmarshal(importZIP(a, first).Body.Bytes(), &deleted); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(importZIP(a, second).Body.Bytes(), &retained); err != nil {
+		t.Fatal(err)
+	}
+	session := a.Runtime.Store.Create(deleted.ID)
+	a.Runtime.Store.Emit(session.ID, "", "user.message", map[string]any{"text": "preserved test message"})
+	if !deleted.Custom || retained.ID == deleted.ID {
+		t.Fatal("custom marker or fixture invalid")
+	}
+	for _, id := range []string{c.Characters[0].ID, "missing"} {
+		res := request(t, a, "DELETE", "/api/characters/"+id, nil)
+		want := 403
+		if id == "missing" {
+			want = 404
+		}
+		if res.Code != want {
+			t.Fatal("protected or missing role", res.Code, res.Body.String())
+		}
+	}
+	res := request(t, a, "DELETE", "/api/characters/"+deleted.ID, nil)
+	if res.Code != 200 {
+		t.Fatal(res.Code, res.Body.String())
+	}
+	if _, err := os.Stat(deleted.AssetPath); !os.IsNotExist(err) {
+		t.Fatal("deleted ZIP still exists", err)
+	}
+	if _, err := os.Stat(deleted.AssetPath + ".deleting"); !os.IsNotExist(err) {
+		t.Fatal("staged ZIP still exists", err)
+	}
+	if request(t, a, "GET", deleted.Renderer.AssetURL, nil).Code != 404 || request(t, a, "POST", "/api/sessions", map[string]any{"character_id": deleted.ID}).Code != 422 {
+		t.Fatal("deleted role remains accessible")
+	}
+	if got := request(t, a, "GET", retained.Renderer.AssetURL, nil); got.Code != 200 || !bytes.Equal(got.Body.Bytes(), second) {
+		t.Fatal("other avatar changed")
+	}
+	updated, _ := a.Runtime.Store.Session(session.ID)
+	if updated.CharacterID != c.Characters[0].ID {
+		t.Fatal("session did not fall back", updated)
+	}
+	events := a.Runtime.Store.Events(session.ID, 0)
+	if len(events) != 2 || events[0].Data["text"] != "preserved test message" || events[1].Type != "characters.changed" {
+		t.Fatal("history or notification lost", events)
+	}
+	reopened, err := store.Open(filepath.Dir(a.Runtime.Store.CharacterAssetDir()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	if items := reopened.Characters(); len(items) != 1 || items[0].ID != retained.ID {
+		t.Fatal("deleted avatar came back", items)
+	}
+	if got, _ := reopened.Session(session.ID); got.CharacterID != c.Characters[0].ID {
+		t.Fatal("fallback lost after reopen", got)
+	}
+	if got := request(t, a, "DELETE", "/api/characters/"+deleted.ID, nil); got.Code != 404 {
+		t.Fatal("duplicate deletion", got.Code)
 	}
 }

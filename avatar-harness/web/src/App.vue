@@ -55,6 +55,11 @@ const label = (kind: string, source?: string) => kind === 'user' ? '用户' : ki
 async function run(action: () => Promise<unknown>) { try { await action() } catch (exc) { app.notice(String(exc), 'error') } }
 async function reconnectDriver() { await stage.value?.reconnectDriver() }
 async function send() { const text = draft.value.trim(); if (!text) return; draft.value = ''; await app.send(text) }
+async function deleteCurrentCharacter() {
+  const target = character.value
+  if (!target?.custom || !window.confirm(`删除形象“${target.name}”？\n将移除该角色并清理已保存的形象文件，历史会话记录会保留。`)) return
+  await run(() => app.deleteCharacter(target.id))
+}
 function openImport() { sourceError.value = ''; importOpen.value = true }
 function loadFile(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
@@ -94,6 +99,7 @@ onUnmounted(() => { window.removeEventListener('keydown', keydown); if (localURL
       <div class="brand"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="m3 25 9-17 4 7-5 10z" fill="#79e4b0"/><path d="m12 7 4-5 12 23h-8z" fill="#83b8df"/><path d="m12 25 4-7 4 7z" fill="#b3f1db"/></svg><span>Avatar Harness</span></div>
       <div class="header-divider" />
       <label class="role-select"><select :value="selected?.character_id" aria-label="选择角色" @change="run(() => app.newSession(($event.target as HTMLSelectElement).value))"><option v-for="item in state?.characters" :key="item.id" :value="item.id">{{ characterName(item.name) }}</option></select><Icon name="down" :size="15" /></label>
+      <button v-if="character?.custom" class="outline character-delete" :disabled="app.deletingCharacter.value" aria-label="删除当前自定义形象" @click="deleteCurrentCharacter"><Icon name="trash" :size="15" />{{ app.deletingCharacter.value ? '删除中…' : '删除形象' }}</button>
       <a v-if="state?.avatar_creator" class="creator-link" href="/create-avatar/" target="_blank" rel="noopener">制作形象 <span aria-hidden="true">↗</span></a>
     </header>
 

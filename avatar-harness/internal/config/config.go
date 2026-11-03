@@ -43,6 +43,7 @@ type Renderer struct {
 }
 type Character struct {
 	ID             string             `json:"id"`
+	Custom         bool               `json:"custom,omitempty"`
 	Name           string             `json:"name"`
 	AssetPath      string             `json:"asset_path"`
 	Voice          string             `json:"voice"`

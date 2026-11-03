@@ -77,6 +77,9 @@ func (r *Runtime) Character(id string) (config.Character, bool) {
 }
 func (r *Runtime) Characters() []config.Character {
 	items := append([]config.Character(nil), r.Config.Characters...)
+	for i := range items {
+		items[i].Custom = false
+	}
 	if r.Store != nil {
 		items = append(items, r.Store.Characters()...)
 	}

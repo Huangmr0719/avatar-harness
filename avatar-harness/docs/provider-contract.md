@@ -2,6 +2,8 @@
 
 ## 接入方式
 
+`DELETE /api/characters/{id}` 删除持久角色库中的自定义角色；内置角色返回 403，不存在的角色返回 404。删除清理 Harness 管理的 ZIP，并将相关会话切回默认角色，保留消息记录。成功后向已连接工作台发送 `characters.changed`，更新列表与当前形象。`GET /api/state` 的角色对象以 `custom: true` 标识可删除角色。
+
 LAM 制作页面可通过顶层 `avatar_creator: {"base_url":"http://127.0.0.1:18767"}` 接入。Go 在 `/create-avatar/` 代理网页、文件和队列 WebSocket，建模服务设置对应 `root_path`。生成回调以 `Content-Type: application/zip` 上传至 `POST /api/characters/import?name=角色名称`，返回完整角色对象；首次保存 201，同资产重复保存 200。生成的资产和角色库持久保存在当前配置旁的私有目录，不改写静态角色配置，不进入语音回复路径。回调应指向实际承载工作台的后端；完整部署见 [data2 内网网页部署](data2-web-lan.md)。
 
 `kind: openai` 只用于原生兼容 LLM；`kind: fastapi` 用于标准 HTTP 适配器；`kind: internal` 用于已注册并编译的 Go 函数。FastAPI 是服务提供商侧的一种实现方式，协议本身不限制服务端语言。模型可以仍用 Python、PyTorch 和 CUDA。

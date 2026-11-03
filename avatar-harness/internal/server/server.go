@@ -31,6 +31,7 @@ type App struct {
 	done        context.Context
 	cancel      context.CancelFunc
 	voiceMu     sync.Mutex
+	characterMu sync.Mutex
 	voices      map[string]*voiceConnection
 }
 
@@ -92,6 +93,8 @@ func (a *App) routes() {
 		if body.CharacterID == "" {
 			body.CharacterID = a.Config.Characters[0].ID
 		}
+		a.characterMu.Lock()
+		defer a.characterMu.Unlock()
 		if _, ok := a.Runtime.Character(body.CharacterID); !ok {
 			problem(w, 422, "角色不存在")
 			return

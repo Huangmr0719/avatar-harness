@@ -34,6 +34,8 @@ LAM 服务使用仓库中的 `services/lam-creator/launch.py` 和 `harness_ui.py
 
 新角色以内容哈希去重，使用当前默认角色的音色、人格和 PAD，配备远程 LAM 驱动。资产保存在 `runtime/state/characters/`，列表保存在 `runtime/state/characters.json`，重启后仍可选择。照片、生成资产、角色列表和密钥都属于私有运行数据，不随代码提交 GitHub。
 
+删除不满意的形象：先在左上角选择该自定义角色，再点击旁边的“删除形象”并确认。角色会从列表移除，Harness 保存的 ZIP 会被清理；相关历史会话保留并切回默认角色。内置角色没有删除入口。此操作不删除制作服务保留的源照片或原始导出。
+
 ## 服务布局
 
 - 独立目录：`/data2/huangmr/code/avatar-harness/web-service/`。

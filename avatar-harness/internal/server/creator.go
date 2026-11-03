@@ -20,6 +20,7 @@ import (
 
 func (a *App) creatorRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/characters/import", a.importCharacter)
+	mux.HandleFunc("DELETE /api/characters/{character}", a.deleteCharacter)
 	if a.Config.AvatarCreator == nil {
 		return
 	}
@@ -58,6 +59,8 @@ func (a *App) creatorRoutes(mux *http.ServeMux) {
 }
 
 func (a *App) importCharacter(w http.ResponseWriter, r *http.Request) {
+	a.characterMu.Lock()
+	defer a.characterMu.Unlock()
 	if a.Config.AvatarCreator == nil {
 		problem(w, 404, "形象制作未配置")
 		return
@@ -113,6 +116,7 @@ func (a *App) importCharacter(w http.ResponseWriter, r *http.Request) {
 	}
 	ch := a.Config.Characters[0]
 	ch.ID, ch.Name, ch.AssetPath = id, name, asset
+	ch.Custom = true
 	ch.AvatarProvider = nil
 	ch.Renderer = config.Renderer{Kind: "lam", Driver: "remote", SpeechJawMax: .32, AssetURL: "/api/characters/" + id + "/asset/avatar.zip"}
 	ch, created, err := a.Runtime.Store.AddCharacter(ch)
@@ -125,6 +129,40 @@ func (a *App) importCharacter(w http.ResponseWriter, r *http.Request) {
 		status = http.StatusCreated
 	}
 	write(w, status, ch)
+}
+
+func (a *App) deleteCharacter(w http.ResponseWriter, r *http.Request) {
+	a.characterMu.Lock()
+	defer a.characterMu.Unlock()
+	id := r.PathValue("character")
+	ch, ok := a.Runtime.Character(id)
+	if !ok {
+		problem(w, 404, "角色不存在或已删除")
+		return
+	}
+	if !ch.Custom {
+		problem(w, 403, "只能删除自定义角色")
+		return
+	}
+	for _, session := range a.Runtime.Store.Sessions() {
+		if session.CharacterID == id {
+			a.interruptVoice(session.ID)
+			a.Runtime.Cancel(session.ID, "角色已删除")
+		}
+	}
+	deleted, err := a.Runtime.Store.DeleteCharacter(id, a.Config.Characters[0].ID)
+	if !deleted {
+		problem(w, 500, "角色删除失败，请重试")
+		return
+	}
+	for _, session := range a.Runtime.Store.Sessions() {
+		a.Runtime.Store.Emit(session.ID, "", "characters.changed", map[string]any{"deleted_id": id})
+	}
+	result := map[string]any{"deleted": true}
+	if err != nil {
+		result["warning"] = "角色已移除，但形象文件清理失败"
+	}
+	write(w, 200, result)
 }
 
 func validLAMArchive(f *os.File, size int64) bool {
