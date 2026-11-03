@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# A private LAN gateway fronts the loopback-only Harness and model services.
+set -euo pipefail
+root=${AVATAR_WEB_ROOT:-/data2/huangmr/code/avatar-harness/web-service}
+socket="$root/runtime/tmp/tmux.sock"
+config="$root/runtime/state/config.json"
+export XDG_DATA_HOME="$root/runtime/caddy-data"
+export XDG_CONFIG_HOME="$root/runtime/caddy-config"
+export XDG_CACHE_HOME="$root/runtime/cache"
+export TMPDIR="$root/runtime/tmp"
+
+start_session() {
+  local name=$1 mode=$2
+  if ! tmux -S "$socket" has-session -t "$name" 2>/dev/null; then
+    tmux -S "$socket" -f /dev/null new-session -d -s "$name" -c "$root" \
+      "bash '$root/service' '$mode'"
+  fi
+}
+stop_sessions() {
+  "$root/bin/avatar-harness" --config "$config" stop
+  for name in gateway harness; do
+    pid=$(tmux -S "$socket" display-message -p -t "$name" '#{pane_pid}' 2>/dev/null || true)
+    if [[ "$pid" =~ ^[0-9]+$ ]]; then kill -TERM "$pid" 2>/dev/null || true; fi
+    tmux -S "$socket" kill-session -t "$name" 2>/dev/null || true
+  done
+}
+
+case "${1:-status}" in
+  run-harness)
+    # The deployed secrets file, rather than an older tmux environment, owns
+    # this application's cloud key. No credentials appear in arguments/logs.
+    unset DASHSCOPE_API_KEY
+    exec "$root/bin/avatar-harness" --config "$config" serve --no-open \
+      --host 127.0.0.1 --port 8765 >> "$root/runtime/logs/harness.log" 2>&1
+    ;;
+  run-gateway)
+    exec "$root/bin/caddy" run --config "$root/Caddyfile" --adapter caddyfile \
+      >> "$root/runtime/logs/gateway.log" 2>&1
+    ;;
+  start)
+    start_session harness run-harness
+    for _ in {1..30}; do
+      if curl --noproxy '*' -fsS --max-time 1 http://127.0.0.1:8765/api/health >/dev/null 2>&1; then
+        start_session gateway run-gateway
+        echo 'Harness started; LAN gateway runs in its own tmux session.'
+        exit 0
+      fi
+      sleep 1
+    done
+    echo "Startup failed: $root/runtime/logs/harness.log" >&2
+    exit 1
+    ;;
+  stop) stop_sessions ;;
+  restart) stop_sessions; exec bash "$root/service" start ;;
+  status)
+    curl --noproxy '*' -fsS --max-time 3 http://127.0.0.1:8765/api/health
+    echo
+    tmux -S "$socket" list-sessions
+    ;;
+  *) echo 'Usage: data2-web-runtime start|stop|restart|status' >&2; exit 2 ;;
+esac

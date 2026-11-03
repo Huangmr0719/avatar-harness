@@ -6,6 +6,8 @@
 
 Windows 电脑连接现有 data2 GPU 服务，请直接使用 [Windows Agent 部署指南](docs/windows-lan-agent.md)：优先在已有 WSL2 中运行 Go 与 SSH 隧道，Windows 浏览器负责渲染和麦克风；另有原生 PowerShell 备选方案。无需在客户端安装 Python / CUDA。
 
+同一内网/VPN 内可将工作台全部放在 data2，推荐客户端通过 SSH 隧道访问本机网页，无需安装浏览器证书或本地构建项目，见 [data2 内网网页部署](docs/data2-web-lan.md)。直接访问内网 HTTPS 的方式也保留在该指南中。
+
 System Prompt 双栏对照：启动后访问 [`/demo/prompts`](http://127.0.0.1:8765/demo/prompts)，查看多轮回答、逐项验收、审校改写、文字延迟和导出记录。控制条件与验证范围见 [对照说明](docs/prompt-comparison.md)。
 
 ## 当前 Mac 启动

@@ -1,5 +1,7 @@
 # data2 数字人模型服务
 
+当前推荐将工作台放在 data2，经一个 SSH 隧道访问，见 [data2 内网网页部署](data2-web-lan.md)。右上角“制作形象”打开 LAM 网页，生成成功后自动加入该工作台角色列表。以下 Mac 独立运行后端的方式继续保留；建模服务的自动保存回调应指向实际使用的工作台。
+
 Windows 客户端使用 [Windows Agent 部署指南](windows-lan-agent.md)，同样通过 SSH 隧道访问以下现有服务。
 
 Mac 保留 Go harness、麦克风/摄像头采集和浏览器界面。data2 运行 GPU 驱动与离线形象制作。所有新增服务器文件位于 `/data2/huangmr/code/avatar-harness/`；现有 `/data2/huangmr/envs/au_gen` 作为只读 CUDA 依赖来源，未升级或降级。
@@ -21,7 +23,7 @@ bash scripts/connect-data2-models
 保持终端连接后：
 
 - GPU 驱动健康检查：`http://127.0.0.1:18766/health`
-- LAM 形象制作：`http://127.0.0.1:18767/`
+- LAM 形象制作：工作台右上角“制作形象”（`/create-avatar/`，由 Go 代理 18767）
 - LHM++ 形象制作：`http://127.0.0.1:18768/`
 
 这三个服务只监听 data2 的回环地址。此部署提供 Mac 通过 SSH 调用的路径，没有开放公网端口。

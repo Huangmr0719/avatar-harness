@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"avatarharness/internal/config"
 	"avatarharness/internal/intervention"
 )
 
@@ -42,6 +43,7 @@ type record struct {
 }
 type Store struct {
 	mu            sync.Mutex
+	characters    []config.Character
 	sessions      map[string]Session
 	events        map[string][]Event
 	history       map[string][]map[string]any
@@ -63,6 +65,13 @@ func Open(dir string) (*Store, error) {
 	}
 	path := filepath.Join(dir, "sessions.jsonl")
 	s := &Store{sessions: map[string]Session{}, events: map[string][]Event{}, history: map[string][]map[string]any{}, memories: map[string]SessionMemory{}, interventions: map[string]intervention.State{}, subs: map[string]map[chan Event]bool{}, done: make(chan struct{}), flushed: make(chan struct{})}
+	if raw, err := os.ReadFile(filepath.Join(dir, "characters.json")); err == nil {
+		if err := json.Unmarshal(raw, &s.characters); err != nil {
+			return nil, fmt.Errorf("角色列表读取失败，原文件已保留：%w", err)
+		}
+	} else if !os.IsNotExist(err) {
+		return nil, err
+	}
 	if raw, err := os.Open(path); err == nil {
 		scanner := bufio.NewScanner(raw)
 		scanner.Buffer(make([]byte, 8192), 8<<20)

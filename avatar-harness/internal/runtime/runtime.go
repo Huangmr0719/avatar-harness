@@ -52,6 +52,13 @@ func New(c *config.Config, s *store.Store, b *provider.Bus) *Runtime {
 	r := &Runtime{Config: c, Store: s, Bus: b, current: map[string]*Turn{}, turns: map[string]*Turn{}, perception: map[string]*perceptionSession{}, memoryJobs: map[string]*memoryJob{}}
 	if b != nil {
 		r.registerSessionTools()
+		b.Register("list_characters", func(ctx context.Context, request provider.Request, emit provider.Emit) (provider.Result, error) {
+			items := []map[string]any{}
+			for _, ch := range r.Characters() {
+				items = append(items, map[string]any{"id": ch.ID, "name": ch.Name, "asset_configured": ch.AssetPath != "" || ch.Renderer.AssetURL != "" || ch.Renderer.URL != ""})
+			}
+			return provider.OK(map[string]any{"characters": items}), nil
+		})
 	}
 	if s != nil {
 		for _, session := range s.Sessions() {
@@ -61,12 +68,19 @@ func New(c *config.Config, s *store.Store, b *provider.Bus) *Runtime {
 	return r
 }
 func (r *Runtime) Character(id string) (config.Character, bool) {
-	for _, c := range r.Config.Characters {
+	for _, c := range r.Characters() {
 		if c.ID == id {
 			return c, true
 		}
 	}
 	return config.Character{}, false
+}
+func (r *Runtime) Characters() []config.Character {
+	items := append([]config.Character(nil), r.Config.Characters...)
+	if r.Store != nil {
+		items = append(items, r.Store.Characters()...)
+	}
+	return items
 }
 func (r *Runtime) Start(sid, text, source string, media bool, inherited []map[string]any) (*Turn, error) {
 	return r.start(sid, text, source, media, inherited, "", time.Time{}, nil)

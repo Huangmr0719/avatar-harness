@@ -6,6 +6,9 @@ import sys
 root = Path(os.environ.get('AVATAR_SERVICE_ROOT', '/data2/huangmr/code/avatar-harness'))
 sys.path.insert(0, str(root / 'upstream/LAM'))
 import app_lam
+from harness_ui import install
+
+install(app_lam.gr)
 
 
 def build_model(cfg):

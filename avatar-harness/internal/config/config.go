@@ -80,6 +80,9 @@ type PracticeVideo struct {
 	HasAudio        bool   `json:"has_audio"`
 	SourceURL       string `json:"source_url,omitempty"`
 }
+type AvatarCreator struct {
+	BaseURL string `json:"base_url"`
+}
 type Config struct {
 	Version       int                 `json:"version"`
 	Host          string              `json:"host"`
@@ -91,6 +94,8 @@ type Config struct {
 	OACURL        string              `json:"oac_url,omitempty"`
 	Perception    *Provider           `json:"perception,omitempty"`
 	PracticeVideo *PracticeVideo      `json:"practice_video,omitempty"`
+	CloudProxyURL string              `json:"cloud_proxy_url,omitempty"`
+	AvatarCreator *AvatarCreator      `json:"avatar_creator,omitempty"`
 }
 
 var Roles = []string{"llm", "asr", "tts", "avatar"}
@@ -119,6 +124,15 @@ func DefaultPath() string {
 	return p
 }
 func (c *Config) Validate() error {
+	if c.AvatarCreator != nil {
+		u, err := url.Parse(c.AvatarCreator.BaseURL)
+		if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+			return fmt.Errorf("avatar_creator 需要 LAM 建模服务的 HTTP(S) 地址")
+		}
+	}
+	if _, err := c.CloudProxy(); err != nil {
+		return err
+	}
 	c.addSessionTools()
 	if v := c.PracticeVideo; v != nil {
 		if !filepath.IsAbs(v.Path) || strings.ToLower(filepath.Ext(v.Path)) != ".mp4" || strings.TrimSpace(v.Title) == "" || v.DurationSeconds < 60 || v.DurationSeconds > 300 {
@@ -284,6 +298,19 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("语音起止检测时间配置无效")
 	}
 	return nil
+}
+
+// Only cloud OpenAI/Bailian traffic uses this proxy. Local FastAPI model calls
+// keep their direct transport, independently of host-wide proxy settings.
+func (c *Config) CloudProxy() (*url.URL, error) {
+	if c.CloudProxyURL == "" {
+		return nil, nil
+	}
+	u, err := url.Parse(c.CloudProxyURL)
+	if err != nil || u.Hostname() == "" || (u.Scheme != "http" && u.Scheme != "socks5") || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
+		return nil, fmt.Errorf("cloud_proxy_url 需要 http:// 或 socks5:// 代理地址与端口")
+	}
+	return u, nil
 }
 func Load(path string) (Config, error) {
 	c := Default()

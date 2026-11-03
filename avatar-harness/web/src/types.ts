@@ -3,7 +3,7 @@ export interface Renderer { kind: 'none' | 'scene' | 'lam' | 'iframe' | 'video';
 export interface Character { id: string; name: string; asset_path: string; voice: string; persona: string; pad?: Record<string, number>; renderer: Renderer }
 export interface Tool { name: string; kind: string; description: string; timeout_ms: number }
 export interface PracticeVideo { title: string; url: string; duration_seconds: number; has_audio: boolean; source_url?: string; available: boolean }
-export interface State { version: string; runtime: string; providers: Record<string, ProviderState>; characters: Character[]; tools: Tool[]; limits: Record<string, number>; oac_url: string; face_analysis?: boolean; practice_video?: PracticeVideo }
+export interface State { version: string; runtime: string; providers: Record<string, ProviderState>; characters: Character[]; tools: Tool[]; limits: Record<string, number>; oac_url: string; face_analysis?: boolean; practice_video?: PracticeVideo; avatar_creator?: boolean }
 export interface Session { id: string; character_id: string; title: string; created_at: number }
 export interface HarnessEvent { seq: number; session_id: string; turn_id: string | null; type: string; at: number; data: Record<string, any> }
 export interface Entry { id: string; at: number; kind: 'user' | 'assistant' | 'tool' | 'notice'; text: string; turn_id?: string; name?: string; status?: string; args?: unknown; result?: unknown; source?: string; elapsed_ms?: number; draft?: boolean; capability?: string; code?: string }

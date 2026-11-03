@@ -19,7 +19,7 @@ func (b *Bus) LiveASR(parent context.Context, audio <-chan []byte, emit Emit) (e
 	}
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
-	conn, err := dialBailian(ctx, p, "asr")
+	conn, err := b.dialBailian(ctx, p, "asr")
 	if err != nil {
 		return err
 	}

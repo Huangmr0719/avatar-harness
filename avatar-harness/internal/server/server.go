@@ -67,6 +67,7 @@ func (a *App) session(w http.ResponseWriter, r *http.Request) (store.Session, bo
 }
 func (a *App) routes() {
 	mux := http.NewServeMux()
+	a.creatorRoutes(mux)
 	a.interventionRoutes(mux)
 	mux.HandleFunc("GET /api/practice-video/file", a.practiceVideoFile)
 	a.comparisonRoutes(mux)
@@ -78,7 +79,7 @@ func (a *App) routes() {
 		for name, p := range a.Config.Providers {
 			states[name] = config.State(p)
 		}
-		write(w, 200, map[string]any{"version": Version, "runtime": "go", "providers": states, "characters": a.Config.Characters, "tools": a.Config.Tools, "limits": a.Config.Limits, "configuration": "terminal", "oac_url": a.Config.OACURL, "face_analysis": a.Config.Perception != nil, "practice_video": a.practiceVideo()})
+		write(w, 200, map[string]any{"version": Version, "runtime": "go", "providers": states, "characters": a.Runtime.Characters(), "tools": a.Config.Tools, "limits": a.Config.Limits, "configuration": "terminal", "oac_url": a.Config.OACURL, "face_analysis": a.Config.Perception != nil, "practice_video": a.practiceVideo(), "avatar_creator": a.Config.AvatarCreator != nil})
 	})
 	mux.HandleFunc("GET /api/sessions", func(w http.ResponseWriter, r *http.Request) { write(w, 200, a.Runtime.Store.Sessions()) })
 	mux.HandleFunc("POST /api/sessions", func(w http.ResponseWriter, r *http.Request) {

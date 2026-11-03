@@ -413,6 +413,14 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
       if (!entries.value.length) notice('本地工具已就绪。')
     } catch (exc) { error.value = String(exc) }
   }
+  async function refreshCharacters() {
+    if (!state.value?.avatar_creator) return
+    try { state.value = await api<State>('/api/state') }
+    catch (exc) { notice(`角色列表更新失败：${String(exc)}`, 'error') }
+  }
+  const refreshOnFocus = () => { void refreshCharacters() }
+  window.addEventListener('focus', refreshOnFocus)
+  onUnmounted(() => window.removeEventListener('focus', refreshOnFocus))
   async function send(text: string) {
     if (!selected.value || !text.trim()) return
     error.value = ''; pendingOrigin = performance.now()

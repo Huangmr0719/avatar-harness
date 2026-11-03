@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -32,12 +33,14 @@ type Result struct {
 type Emit func(map[string]any) error
 type Internal func(context.Context, Request, Emit) (Result, error)
 type Bus struct {
-	Config   *config.Config
-	Client   *http.Client
-	mu       sync.RWMutex
-	internal map[string]Internal
-	schemas  map[string]*jsonschema.Schema
-	ttsPacer ttsRequestPacer
+	Config      *config.Config
+	Client      *http.Client
+	cloudClient *http.Client
+	cloudProxy  func(*http.Request) (*url.URL, error)
+	mu          sync.RWMutex
+	internal    map[string]Internal
+	schemas     map[string]*jsonschema.Schema
+	ttsPacer    ttsRequestPacer
 }
 
 func New(c *config.Config, client *http.Client) (*Bus, error) {
@@ -49,6 +52,27 @@ func New(c *config.Config, client *http.Client) (*Bus, error) {
 		client = &http.Client{Transport: transport}
 	}
 	b := &Bus{Config: c, Client: client, internal: map[string]Internal{}, schemas: map[string]*jsonschema.Schema{}}
+	b.cloudClient = client
+	proxyURL, err := c.CloudProxy()
+	if err != nil {
+		return nil, err
+	}
+	if proxyURL != nil {
+		base := client.Transport
+		if base == nil {
+			base = http.DefaultTransport
+		}
+		transport, ok := base.(*http.Transport)
+		if !ok {
+			return nil, fmt.Errorf("云端代理需要标准 HTTP transport")
+		}
+		transport = transport.Clone()
+		b.cloudProxy = http.ProxyURL(proxyURL)
+		transport.Proxy = b.cloudProxy
+		cloud := *client
+		cloud.Transport = transport
+		b.cloudClient = &cloud
+	}
 	b.Register("get_current_time", func(ctx context.Context, r Request, e Emit) (Result, error) {
 		zone, _ := r.Input["timezone"].(string)
 		if zone == "" {
@@ -289,7 +313,11 @@ func (b *Bus) post(ctx context.Context, p config.Provider, path string, body any
 		}
 		req.Header.Set("Authorization", "Bearer "+key)
 	}
-	res, err := b.Client.Do(req)
+	client := b.Client
+	if p.Kind == "openai" {
+		client = b.cloudClient
+	}
+	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}

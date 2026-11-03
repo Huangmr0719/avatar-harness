@@ -2,6 +2,7 @@
   "version": 2,
   "host": "127.0.0.1",
   "port": 8765,
+  "avatar_creator": { "base_url": "http://127.0.0.1:18767" },
   "providers": {
     "asr": {
       "kind": "bailian",

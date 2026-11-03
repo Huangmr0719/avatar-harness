@@ -63,7 +63,7 @@ func (s *TTSStream) prepare() {
 	ctx, cancel := context.WithTimeout(s.ctx, time.Duration(s.provider.TimeoutMS)*time.Millisecond)
 	defer cancel()
 	start := time.Now()
-	conn, err := dialBailian(ctx, s.provider, "tts")
+	conn, err := s.bus.dialBailian(ctx, s.provider, "tts")
 	s.dialMS = float64(time.Since(start).Microseconds()) / 1000
 	if err != nil {
 		s.err = err

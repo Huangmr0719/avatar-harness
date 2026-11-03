@@ -1,6 +1,6 @@
 # data2 部署
 
-> 历史方案归档：下文是空间不足时准备的整机迁移方案，资源快照和“尚未安装”状态已经过时。当前采用 **Mac harness + data2 GPU 模型服务**，部署、访问和验证结果见 [data2-models.md](data2-models.md)。不要按下文迁移或启动第二个 harness。
+> 历史方案归档：下文是空间不足时准备的整机迁移方案，资源快照和“尚未安装”状态已经过时。当前内网网页方案见 [data2-web-lan.md](data2-web-lan.md)；Mac 本地工作台配合远程模型的方案见 [data2-models.md](data2-models.md)。不要按下文重复迁移。
 
 所有新增服务器文件限定在 `/data2/huangmr/code/avatar-harness/`：
 

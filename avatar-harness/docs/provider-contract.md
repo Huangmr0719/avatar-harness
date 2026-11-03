@@ -2,11 +2,15 @@
 
 ## 接入方式
 
+LAM 制作页面可通过顶层 `avatar_creator: {"base_url":"http://127.0.0.1:18767"}` 接入。Go 在 `/create-avatar/` 代理网页、文件和队列 WebSocket，建模服务设置对应 `root_path`。生成回调以 `Content-Type: application/zip` 上传至 `POST /api/characters/import?name=角色名称`，返回完整角色对象；首次保存 201，同资产重复保存 200。生成的资产和角色库持久保存在当前配置旁的私有目录，不改写静态角色配置，不进入语音回复路径。回调应指向实际承载工作台的后端；完整部署见 [data2 内网网页部署](data2-web-lan.md)。
+
 `kind: openai` 只用于原生兼容 LLM；`kind: fastapi` 用于标准 HTTP 适配器；`kind: internal` 用于已注册并编译的 Go 函数。FastAPI 是服务提供商侧的一种实现方式，协议本身不限制服务端语言。模型可以仍用 Python、PyTorch 和 CUDA。
 
 `kind: bailian` 用于 Go 原生百炼语音 WebSocket 适配器。ASR 和旧 Qwen3-TTS-Realtime 使用 `wss://…/api-ws/v1/realtime`，适配器添加 `model` 查询参数；Qwen-Audio-TTS 使用 `wss://…/api-ws/v1/inference`，模型写入 `run-task.payload.model`，不添加查询参数。使用 `./start configure bailian` 可将 LLM、ASR、TTS 统一设置为北京地域，共用服务端 `DASHSCOPE_API_KEY`。LLM 继续使用 `kind: openai`。百炼预设不覆盖 Avatar、角色资产或工具配置。
 
 所有外部密钥由 Go 从 `api_key_env` 读取并在服务端发送 Bearer header，不下发浏览器。`timeout_ms` 为每次调用上限；上下文取消会终止 HTTP 等待。外部模型还需要自行响应断连 / 取消，HTTP 取消不等于 GPU 算子立即停算。
+
+服务器需要出站代理时，可设置顶层 `cloud_proxy_url`（`http://` 或 `socks5://`）。只有 OpenAI 兼容 LLM 和百炼 ASR/TTS 使用该代理，HTTP 连接池跨请求复用，WebSocket 使用 CONNECT/SOCKS 握手。本机 FastAPI、LAM 和感知请求保持直连，不读取宿主机全局代理设置。代理地址保留在服务端配置中。
 
 ## 实时麦克风 WebSocket
 

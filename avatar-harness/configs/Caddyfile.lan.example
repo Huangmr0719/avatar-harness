@@ -1,0 +1,18 @@
+{
+    admin off
+    auto_https disable_redirects
+    skip_install_trust
+}
+
+# Bind only to the actual LAN interface. Set these environment variables or
+# replace them in the server-private copy; keep the password hash out of Git.
+https://{$HARNESS_LAN_IP}:8443 {
+    bind {$HARNESS_LAN_IP}
+    tls internal
+    basic_auth {
+        {$HARNESS_ACCESS_USER} {$HARNESS_ACCESS_HASH}
+    }
+    reverse_proxy 127.0.0.1:8765 {
+        flush_interval -1
+    }
+}

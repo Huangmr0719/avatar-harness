@@ -94,6 +94,7 @@ onUnmounted(() => { window.removeEventListener('keydown', keydown); if (localURL
       <div class="brand"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="m3 25 9-17 4 7-5 10z" fill="#79e4b0"/><path d="m12 7 4-5 12 23h-8z" fill="#83b8df"/><path d="m12 25 4-7 4 7z" fill="#b3f1db"/></svg><span>Avatar Harness</span></div>
       <div class="header-divider" />
       <label class="role-select"><select :value="selected?.character_id" aria-label="选择角色" @change="run(() => app.newSession(($event.target as HTMLSelectElement).value))"><option v-for="item in state?.characters" :key="item.id" :value="item.id">{{ characterName(item.name) }}</option></select><Icon name="down" :size="15" /></label>
+      <a v-if="state?.avatar_creator" class="creator-link" href="/create-avatar/" target="_blank" rel="noopener">制作形象 <span aria-hidden="true">↗</span></a>
     </header>
 
     <main class="workspace">

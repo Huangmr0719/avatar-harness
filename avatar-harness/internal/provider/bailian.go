@@ -38,7 +38,7 @@ func (b *Bus) bailian(ctx context.Context, role string, p config.Provider, input
 			return Result{}, err
 		}
 	}
-	conn, err := dialBailian(ctx, p, role)
+	conn, err := b.dialBailian(ctx, p, role)
 	if err != nil {
 		return Result{}, err
 	}
@@ -64,7 +64,7 @@ func (b *Bus) bailian(ctx context.Context, role string, p config.Provider, input
 	return result, realtimeError(ctx, err)
 }
 
-func dialBailian(ctx context.Context, p config.Provider, role string) (*websocket.Conn, error) {
+func (b *Bus) dialBailian(ctx context.Context, p config.Provider, role string) (*websocket.Conn, error) {
 	key := os.Getenv(p.APIKeyEnv)
 	if key == "" {
 		return nil, fmt.Errorf("缺少百炼密钥 %s，请运行 ./start configure bailian", p.APIKeyEnv)
@@ -80,7 +80,7 @@ func dialBailian(ctx context.Context, p config.Provider, role string) (*websocke
 		query.Set("model", p.Model)
 	}
 	u.RawQuery = query.Encode()
-	dialer := websocket.Dialer{HandshakeTimeout: 5 * time.Second}
+	dialer := websocket.Dialer{HandshakeTimeout: 5 * time.Second, Proxy: b.cloudProxy}
 	conn, response, err := dialer.DialContext(ctx, u.String(), http.Header{"Authorization": {"Bearer " + key}})
 	if err != nil {
 		if ctx.Err() != nil {
