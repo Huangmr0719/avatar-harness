@@ -126,6 +126,14 @@ func (b *Bus) Invoke(ctx context.Context, name string, input, metadata map[strin
 			return Fail("error", fmt.Errorf("工具参数校验失败：%w", err))
 		}
 	}
+	return b.InvokeProvider(ctx, name, p, input, metadata)
+}
+
+// InvokeProvider retains the normal timeout, cancellation and credential path
+// for a character-specific service, without mutating global provider settings.
+func (b *Bus) InvokeProvider(ctx context.Context, name string, p config.Provider, input, metadata map[string]any) (result Result) {
+	started := time.Now()
+	defer func() { result.ElapsedMS = float64(time.Since(started).Microseconds()) / 1000 }()
 	err := b.call(ctx, name, p, input, metadata, nil, &result)
 	if err != nil {
 		status := "error"

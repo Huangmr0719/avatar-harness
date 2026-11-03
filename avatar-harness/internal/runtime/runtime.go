@@ -32,6 +32,7 @@ type Turn struct {
 	Metadata        map[string]any
 	UserSignals     map[string]any
 	Support         *intervention.State
+	pendingControl  *sessionControl
 	approvedHistory *approvedSupportHistory
 }
 type Runtime struct {
@@ -49,6 +50,9 @@ type Runtime struct {
 
 func New(c *config.Config, s *store.Store, b *provider.Bus) *Runtime {
 	r := &Runtime{Config: c, Store: s, Bus: b, current: map[string]*Turn{}, turns: map[string]*Turn{}, perception: map[string]*perceptionSession{}, memoryJobs: map[string]*memoryJob{}}
+	if b != nil {
+		r.registerSessionTools()
+	}
 	if s != nil {
 		for _, session := range s.Sessions() {
 			r.interruptSupportLocked(session.ID)
@@ -191,7 +195,7 @@ func (r *Runtime) run(t *Turn, text string, media bool, inherited []map[string]a
 	session, _ := r.Store.Session(t.SessionID)
 	character, _ := r.Character(session.CharacterID)
 	behavior, voice := r.behaviorPrompts()
-	messages := []map[string]any{{"role": "system", "content": character.Persona + behavior + commitPrompt}}
+	messages := []map[string]any{{"role": "system", "content": character.Persona + behavior + commitPrompt + sessionToolPrompt}}
 	if media || r.comparison != nil {
 		messages[0]["content"] = provider.String(messages[0]["content"]) + voice
 	}
@@ -360,6 +364,9 @@ func (r *Runtime) run(t *Turn, text string, media bool, inherited []map[string]a
 			if speech != nil {
 				runErr = speech.Finish()
 			}
+			if runErr == nil {
+				runErr = r.commitSessionControl(t)
+			}
 			return
 		}
 		if batch >= r.Config.Limits.MaxToolBatches {
@@ -491,6 +498,11 @@ func (r *Runtime) command(t *Turn, text string) error {
 		r.Emit(t, "tool.started", map[string]any{"call_id": id, "name": name, "arguments": args})
 		result := r.Bus.Invoke(t.Context, name, args, t.Metadata)
 		r.Emit(t, "tool.finished", merge(map[string]any{"call_id": id, "name": name}, result))
+		if result.Status == "ok" {
+			if err := r.commitSessionControl(t); err != nil {
+				return err
+			}
+		}
 		data, _ := json.MarshalIndent(result, "", "  ")
 		answer = string(data)
 	default:

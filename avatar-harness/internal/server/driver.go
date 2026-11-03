@@ -34,7 +34,7 @@ func (a *App) driver(w http.ResponseWriter, r *http.Request) {
 		}
 		input = map[string]any{"operation": "infer_window", "audio_base64": body.Audio, "sample_rate": 16000, "format": "pcm_f32le"}
 	}
-	result := a.Runtime.Bus.Invoke(r.Context(), "avatar", input, map[string]any{"session_id": session.ID, "request_id": store.ID()})
+	result := a.Runtime.Bus.InvokeProvider(r.Context(), "avatar", a.Config.AvatarFor(character), input, map[string]any{"session_id": session.ID, "request_id": store.ID()})
 	if result.Status != "ok" {
 		problem(w, 502, result.Error)
 		return

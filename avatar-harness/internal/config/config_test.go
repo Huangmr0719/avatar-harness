@@ -57,7 +57,7 @@ func TestBailianPresetPreservesCharactersToolsAndRenderer(t *testing.T) {
 	if err := c.UseBailian("workspace123"); err != nil {
 		t.Fatal(err)
 	}
-	if c.Providers["avatar"].Kind != "fastapi" || c.Characters[0].Renderer.AssetURL != "/models/sample.vrm" || len(c.Tools) != 2 {
+	if c.Providers["avatar"].Kind != "fastapi" || c.Characters[0].Renderer.AssetURL != "/models/sample.vrm" || len(c.Tools) != len(Default().Tools) {
 		t.Fatal("preset replaced existing assets or tools")
 	}
 	for _, role := range []string{"llm", "asr", "tts"} {

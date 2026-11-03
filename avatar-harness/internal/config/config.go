@@ -42,14 +42,25 @@ type Renderer struct {
 	IncludesAudio bool    `json:"includes_audio,omitempty"`
 }
 type Character struct {
-	ID        string             `json:"id"`
-	Name      string             `json:"name"`
-	AssetPath string             `json:"asset_path"`
-	Voice     string             `json:"voice"`
-	Persona   string             `json:"persona"`
-	PAD       map[string]float64 `json:"pad"`
-	Renderer  Renderer           `json:"renderer"`
+	ID             string             `json:"id"`
+	Name           string             `json:"name"`
+	AssetPath      string             `json:"asset_path"`
+	Voice          string             `json:"voice"`
+	Persona        string             `json:"persona"`
+	PAD            map[string]float64 `json:"pad"`
+	Renderer       Renderer           `json:"renderer"`
+	AvatarProvider *Provider          `json:"avatar_provider,omitempty"`
 }
+
+// A character can select a different avatar service while speech and tools keep
+// using the session's shared providers.
+func (c *Config) AvatarFor(ch Character) Provider {
+	if ch.AvatarProvider != nil {
+		return *ch.AvatarProvider
+	}
+	return c.Providers["avatar"]
+}
+
 type Limits struct {
 	FirstResponseMS    int `json:"first_response_ms"`
 	ToolBatchMS        int `json:"tool_batch_ms"`
@@ -62,16 +73,24 @@ type Limits struct {
 	VoiceSilenceMS     int `json:"voice_silence_ms"`
 	VoiceOnsetMS       int `json:"voice_onset_ms"`
 }
+type PracticeVideo struct {
+	Path            string `json:"path"`
+	Title           string `json:"title"`
+	DurationSeconds int    `json:"duration_seconds"`
+	HasAudio        bool   `json:"has_audio"`
+	SourceURL       string `json:"source_url,omitempty"`
+}
 type Config struct {
-	Version    int                 `json:"version"`
-	Host       string              `json:"host"`
-	Port       int                 `json:"port"`
-	Providers  map[string]Provider `json:"providers"`
-	Tools      []Tool              `json:"tools"`
-	Characters []Character         `json:"characters"`
-	Limits     Limits              `json:"limits"`
-	OACURL     string              `json:"oac_url,omitempty"`
-	Perception *Provider           `json:"perception,omitempty"`
+	Version       int                 `json:"version"`
+	Host          string              `json:"host"`
+	Port          int                 `json:"port"`
+	Providers     map[string]Provider `json:"providers"`
+	Tools         []Tool              `json:"tools"`
+	Characters    []Character         `json:"characters"`
+	Limits        Limits              `json:"limits"`
+	OACURL        string              `json:"oac_url,omitempty"`
+	Perception    *Provider           `json:"perception,omitempty"`
+	PracticeVideo *PracticeVideo      `json:"practice_video,omitempty"`
 }
 
 var Roles = []string{"llm", "asr", "tts", "avatar"}
@@ -87,6 +106,7 @@ func Default() Config {
 		{Name: "get_current_time", Description: "读取真实当前日期和时间。", Kind: "internal", TimeoutMS: 500, ReadOnly: true, Parameters: map[string]any{"type": "object", "properties": map[string]any{"timezone": map[string]any{"type": "string"}}, "additionalProperties": false}},
 		{Name: "list_characters", Description: "列出已配置角色及资产状态。", Kind: "internal", TimeoutMS: 500, ReadOnly: true, Parameters: map[string]any{"type": "object", "properties": map[string]any{}, "additionalProperties": false}},
 	}
+	c.addSessionTools()
 	c.Characters = []Character{{ID: "character-01", Name: "角色 01", Persona: "自然、简洁地使用中文回答；需要外部事实时使用工具。", PAD: map[string]float64{"pleasure": .2, "arousal": 0, "dominance": 0}, Renderer: Renderer{Kind: "none"}}}
 	return c
 }
@@ -99,6 +119,12 @@ func DefaultPath() string {
 	return p
 }
 func (c *Config) Validate() error {
+	c.addSessionTools()
+	if v := c.PracticeVideo; v != nil {
+		if !filepath.IsAbs(v.Path) || strings.ToLower(filepath.Ext(v.Path)) != ".mp4" || strings.TrimSpace(v.Title) == "" || v.DurationSeconds < 60 || v.DurationSeconds > 300 {
+			return fmt.Errorf("正念视频需要本地 MP4 绝对路径、名称及 60–300 秒时长")
+		}
+	}
 	if c.Host == "" {
 		c.Host = "127.0.0.1"
 	}
@@ -131,6 +157,18 @@ func (c *Config) Validate() error {
 		case "none", "scene", "lam", "iframe", "video":
 		default:
 			return fmt.Errorf("不支持的形象展示类型 %s", ch.Renderer.Kind)
+		}
+		if p := ch.AvatarProvider; p != nil {
+			u, err := url.Parse(p.BaseURL)
+			if p.Kind != "fastapi" || err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+				return fmt.Errorf("角色 %s 的 avatar_provider 需要 FastAPI HTTP(S) 地址", ch.ID)
+			}
+			if p.TimeoutMS == 0 {
+				p.TimeoutMS = 10000
+			}
+			if p.TimeoutMS < 100 || p.TimeoutMS > 120000 {
+				return fmt.Errorf("角色 avatar_provider 超时配置无效")
+			}
 		}
 		if (ch.Renderer.Kind == "scene" || ch.Renderer.Kind == "lam") && ch.Renderer.AssetURL == "" && ch.AssetPath != "" {
 			ch.Renderer.AssetURL = "/api/characters/" + ch.ID + "/asset"

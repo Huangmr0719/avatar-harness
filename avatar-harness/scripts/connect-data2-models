@@ -1,6 +1,20 @@
 #!/usr/bin/env bash
 set -eu
-exec ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=3 \
-  -L 127.0.0.1:18766:127.0.0.1:18766 \
-  -L 127.0.0.1:18767:127.0.0.1:18767 \
-  -L 127.0.0.1:18768:127.0.0.1:18768 data2
+child=''
+stop() { trap - INT TERM; if [ -n "$child" ]; then kill "$child" 2>/dev/null || true; fi; exit 0; }
+trap stop INT TERM
+while true; do
+  ssh -N -o BatchMode=yes -o ConnectTimeout=10 -o ExitOnForwardFailure=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=3 \
+    -L 127.0.0.1:18766:127.0.0.1:18766 \
+    -L 127.0.0.1:18767:127.0.0.1:18767 \
+    -L 127.0.0.1:18768:127.0.0.1:18768 \
+    -L 127.0.0.1:18769:127.0.0.1:18769 data2 &
+  child=$!
+  wait "$child" || true
+  child=''
+  printf '模型通道已断开，3 秒后重新连接。\n' >&2
+  sleep 3 &
+  child=$!
+  wait "$child" || true
+  child=''
+done

@@ -51,7 +51,8 @@
       "version": "1.4.0",
       "repository": "https://github.com/myned-ai/gsplat-flame-avatar-renderer",
       "license": "MIT",
-      "license_file": "integrations/licenses/gsplat-flame-avatar-renderer-LICENSE"
+      "license_file": "integrations/licenses/gsplat-flame-avatar-renderer-LICENSE",
+      "local_patch": "web/scripts/prepare-runtime.mjs enables alpha in the WebGL context; LamView clears with zero alpha for video overlays."
     },
     "runtime": {
       "package": "onnxruntime-web",

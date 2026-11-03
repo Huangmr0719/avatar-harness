@@ -174,6 +174,6 @@ Go 主进程、provider 协议、工具循环、连续识别、流式合成、�
 
 摄像头可开启 data2 的 EmotiEffNet-B2 轻量分类与 LibreFace AU 分析，每秒约一帧。固定 12 类 AU 柱状图显示当前动作；语音轮按本句时间窗汇总视觉观察，与 ASR 情绪一同作为 LLM 上下文。见[视觉感知第二版](docs/camera-affect-v2.md)。
 
-交流支持：侧栏可按需启用倾听支持、认知梳理或原创视频注意练习，独立调整练习时长与对话负担。反馈与行动记录跟随当前会话保存。见 [闭环实现](docs/intervention-feedback-loop.md) 与 [机制验收](docs/intervention-acceptance-20261031.md)。
+交流支持由 LLM 通过 `set_support_mode` 选择倾听支持、认知梳理或退出；`start_mindfulness` 安排本地正念视频，在本轮引导语实际播完后启动。普通页面保留“正念练习”演示按钮，方法与参数面板仅在开发页面显示。取消、换会话和旧事件不会重新启动视频。反馈与行动记录跟随当前会话保存。见 [闭环实现](docs/intervention-feedback-loop.md) 与 [机制验收](docs/intervention-acceptance-20261031.md)。
 
 交流支持现采用风险检查与生成并行、一次审校和按句语音输出。速度、回答质量及真实起播的对照见 [提速验收](docs/intervention-speed-20261031.md)。

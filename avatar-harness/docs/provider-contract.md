@@ -38,6 +38,8 @@
 
 内部 Go 函数采用相同的数据结构：
 
+内置会话工具 `set_support_mode({mode: "humanistic"|"cbt"|"off"})` 和 `start_mindfulness({})` 由运行时注册，要求当前 `session_id/turn_id`。旧的工具启用配置自动补齐；空工具列表继续禁用工具，同名外部工具配置继续保留。调用只暂存控制意图，成功回答完成语音生成后才提交状态。视频额外发送带当前轮次和执行 ID 的 `intervention.request`；浏览器在 `turn.finished` 后等待实际语音播完，再自动播放。失败、取消、旧事件不会启动视频。界面仍保留“正念练习”直接入口。
+
 ```go
 bus.Register("my_model", func(ctx context.Context, request provider.Request, emit provider.Emit) (provider.Result, error) {
     // 在此调用实际实现；循环必须响应 ctx.Done()。

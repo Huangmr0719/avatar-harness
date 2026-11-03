@@ -79,6 +79,7 @@ export class LamView {
       const renderer = await factory.create(this.host as HTMLDivElement, url, options)
       this.renderer = renderer
       if (this.disposed) return
+      renderer.viewer.renderer.setClearAlpha(0)
       this.reset()
       this.onStatus('ready')
     } catch (error) { if (!this.disposed) this.onStatus('error', String(error)) }

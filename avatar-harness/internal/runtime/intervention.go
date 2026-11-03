@@ -49,6 +49,11 @@ func (r *Runtime) SupportCommand(sid string, command intervention.Command) (inte
 	}
 	s := r.Store.Intervention(sid)
 	command.Source = "user_control"
+	if command.Operation == "start" && command.Mode == intervention.Mindfulness && command.Parameters == nil && r.Config.PracticeVideo != nil {
+		p := intervention.Defaults(intervention.Mindfulness)
+		p.DurationSeconds = r.Config.PracticeVideo.DurationSeconds
+		command.Parameters = &p
+	}
 	next, err := intervention.Apply(s, command, time.Now(), store.ID())
 	if err != nil {
 		return s, err

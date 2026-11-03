@@ -68,6 +68,7 @@ func (a *App) session(w http.ResponseWriter, r *http.Request) (store.Session, bo
 func (a *App) routes() {
 	mux := http.NewServeMux()
 	a.interventionRoutes(mux)
+	mux.HandleFunc("GET /api/practice-video/file", a.practiceVideoFile)
 	a.comparisonRoutes(mux)
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		write(w, 200, map[string]any{"status": "ok", "version": Version, "runtime": "go", "go_version": runtime.Version(), "process_id": os.Getpid(), "gpu_required": false})
@@ -77,7 +78,7 @@ func (a *App) routes() {
 		for name, p := range a.Config.Providers {
 			states[name] = config.State(p)
 		}
-		write(w, 200, map[string]any{"version": Version, "runtime": "go", "providers": states, "characters": a.Config.Characters, "tools": a.Config.Tools, "limits": a.Config.Limits, "configuration": "terminal", "oac_url": a.Config.OACURL, "face_analysis": a.Config.Perception != nil})
+		write(w, 200, map[string]any{"version": Version, "runtime": "go", "providers": states, "characters": a.Config.Characters, "tools": a.Config.Tools, "limits": a.Config.Limits, "configuration": "terminal", "oac_url": a.Config.OACURL, "face_analysis": a.Config.Perception != nil, "practice_video": a.practiceVideo()})
 	})
 	mux.HandleFunc("GET /api/sessions", func(w http.ResponseWriter, r *http.Request) { write(w, 200, a.Runtime.Store.Sessions()) })
 	mux.HandleFunc("POST /api/sessions", func(w http.ResponseWriter, r *http.Request) {
@@ -360,13 +361,14 @@ func (a *App) avatar(w http.ResponseWriter, r *http.Request) {
 	if renderer.Kind == "none" && a.Config.OACURL != "" {
 		renderer = config.Renderer{Kind: "iframe", URL: a.Config.OACURL}
 	}
-	if a.Config.Providers["avatar"].Kind != "deferred" {
+	avatarProvider := a.Config.AvatarFor(character)
+	if avatarProvider.Kind != "deferred" && avatarProvider.Kind != "" {
 		a.Runtime.Store.Emit(session.ID, "", "module.status", map[string]any{"module": "avatar", "state": "running"})
 		operation := "describe"
 		if renderer.Kind == "lam" && renderer.Driver == "remote" {
 			operation = "health"
 		}
-		result := a.Runtime.Bus.Invoke(r.Context(), "avatar", map[string]any{"operation": operation, "character_id": character.ID}, map[string]any{"session_id": session.ID})
+		result := a.Runtime.Bus.InvokeProvider(r.Context(), "avatar", avatarProvider, map[string]any{"operation": operation, "character_id": character.ID}, map[string]any{"session_id": session.ID})
 		if result.Status != "ok" {
 			a.Runtime.Store.Emit(session.ID, "", "module.status", map[string]any{"module": "avatar", "state": result.Status, "message": result.Error})
 			problem(w, 502, result.Error)
@@ -388,7 +390,7 @@ func (a *App) avatar(w http.ResponseWriter, r *http.Request) {
 	switch renderer.Kind {
 	case "none", "scene", "lam", "iframe", "video":
 	default:
-		problem(w, 502, "形象展示类型只支持 lam、scene、iframe、video 或 none")
+		problem(w, 502, "不支持此形象展示类型")
 		return
 	}
 	write(w, 200, map[string]any{"renderer": renderer, "character_id": character.ID})

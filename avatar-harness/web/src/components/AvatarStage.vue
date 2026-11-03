@@ -14,14 +14,14 @@ let swap: Promise<void> = Promise.resolve()
 watch(() => props.renderer, async (renderer) => {
   const current = ++generation
   const cleanup = view?.dispose(); view = null
-  if (renderer.kind === 'scene' || renderer.kind === 'lam') emit('status', 'loading')
+  if (['scene', 'lam'].includes(renderer.kind)) emit('status', 'loading')
   // The SDK factory cannot abort an in-flight load. Retire it fully before a
   // replacement uses the same host, and skip selections superseded meanwhile.
   swap = swap.then(async () => {
     try {
       await cleanup
       if (current !== generation || !host.value) return
-      if ((renderer.kind === 'scene' || renderer.kind === 'lam') && renderer.asset_url) {
+      if (['scene', 'lam'].includes(renderer.kind) && renderer.asset_url) {
         const status = (state: string, message?: string) => { if (current === generation) emit('status', state, message) }
         const driver = (state: string, message?: string) => { if (current === generation) emit('driver', state, message) }
         if (renderer.kind === 'lam') {
@@ -46,12 +46,12 @@ watch(() => props.resetToken, () => view?.reset())
 watch(() => [props.expression, props.intensity] as const, ([style, intensity]) => { if (view && 'setExpression' in view) view.setExpression(style ?? 'neutral', intensity ?? 1) })
 watch(() => [props.listening, props.userSpeaking] as const, ([listening, speaking]) => { if (view && 'setAttention' in view) view.setAttention(!!listening, !!speaking) })
 async function reconnectDriver() { if (view && 'reconnectDriver' in view) await view.reconnectDriver() }
-defineExpose({ reconnectDriver, clearMotion: () => view?.clearMotion(), comparison: (active: boolean) => { if (view && 'setComparison' in view) view.setComparison(active) }, frames: (frames: MotionFrame[], base: number) => view?.addFrames(frames, base), audio: (segment: AudioSegment) => view?.addAudio(segment), prepare: async (buffer: AudioBuffer, pts: number) => { if (view && 'prepare' in view) return await view.prepare(buffer, pts) }, probe: () => view?.probe() ?? null, faceState: (): FaceRigSnapshot | null => view && 'faceState' in view ? view.faceState() : null, overrideFace: (values: Record<string, number>) => { if (view && 'setFaceOverrides' in view) view.setFaceOverrides(values) }, overrideHead: (values: HeadOverrides) => { if (view && 'setHeadOverrides' in view) view.setHeadOverrides(values) } })
+defineExpose({ reconnectDriver, clearMotion: () => view?.clearMotion(), comparison: (active: boolean) => { if (view && 'setComparison' in view) view.setComparison(active) }, frames: (frames: MotionFrame[], base: number) => { if (view && 'addFrames' in view) view.addFrames(frames, base) }, audio: (segment: AudioSegment) => view?.addAudio(segment), prepare: async (buffer: AudioBuffer, pts: number) => { if (view && 'prepare' in view) return await view.prepare(buffer, pts) }, probe: () => view?.probe() ?? null, faceState: (): FaceRigSnapshot | null => view && 'faceState' in view ? view.faceState() : null, overrideFace: (values: Record<string, number>) => { if (view && 'setFaceOverrides' in view) view.setFaceOverrides(values) }, overrideHead: (values: HeadOverrides) => { if (view && 'setHeadOverrides' in view) view.setHeadOverrides(values) } })
 onBeforeUnmount(() => { generation++; view?.dispose() })
 </script>
 <template>
   <div class="render-surface">
-    <div ref="host" class="three-surface" :class="{ visible: renderer.kind === 'scene' || renderer.kind === 'lam' }" aria-label="数字人 3D 渲染画面" />
+    <div ref="host" class="three-surface" :class="{ visible: ['scene', 'lam'].includes(renderer.kind) }" aria-label="数字人 3D 渲染画面" />
     <iframe v-if="renderer.kind === 'iframe' && renderer.url" :src="renderer.url" title="数字人渲染服务" allow="autoplay" @load="emit('status', 'embedded')" />
     <video v-if="renderer.kind === 'video' && renderer.url" :src="renderer.url" autoplay playsinline :muted="!renderer.includes_audio" controls aria-label="数字人视频流" @loadeddata="emit('status', 'ready')" @error="emit('status', 'error', '视频加载失败，请检查地址、格式与浏览器访问权限。')" />
   </div>

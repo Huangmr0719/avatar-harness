@@ -1,0 +1,753 @@
+{
+  "date": "2026-11-03",
+  "inputs": "synthetic test dialogue; no microphone or camera activation",
+  "results": {
+    "video_ui": {
+      "session_id": "67b65939065221c8b4ce35ea",
+      "events": [
+        {
+          "seq": 4402,
+          "session_id": "67b65939065221c8b4ce35ea",
+          "turn_id": "6bf140c5a9c42292f1914e96",
+          "type": "tool.finished",
+          "at": 1793635708.821,
+          "data": {
+            "call_id": "call_86c04d26992c4e5eaa3c97f2",
+            "elapsed_ms": 0.111,
+            "error": "",
+            "name": "start_mindfulness",
+            "output": {
+              "applies_after_answer": true,
+              "can_stop": true,
+              "duration_seconds": 264,
+              "mode": "mindfulness",
+              "playback_started": false,
+              "scheduled": true,
+              "title": "三分钟呼吸空间练习"
+            },
+            "status": "ok"
+          }
+        },
+        {
+          "seq": 4422,
+          "session_id": "67b65939065221c8b4ce35ea",
+          "turn_id": "6bf140c5a9c42292f1914e96",
+          "type": "assistant.message",
+          "at": 1793635709.783,
+          "data": {
+            "source": "llm",
+            "text": "已为你安排三分钟呼吸空间练习，跟着视频放松呼吸就好，随时都可以停止。"
+          }
+        },
+        {
+          "seq": 4435,
+          "session_id": "67b65939065221c8b4ce35ea",
+          "turn_id": "6bf140c5a9c42292f1914e96",
+          "type": "playback.report",
+          "at": 1793635710.319,
+          "data": {
+            "audio_within_budget": false,
+            "diagnostic_within_budget": false,
+            "elapsed_ms": 3002.7000000476837,
+            "meaningful": true,
+            "modality": "audio",
+            "origin": "text",
+            "playback_observed": true,
+            "qualifies": false,
+            "turn_id": "6bf140c5a9c42292f1914e96",
+            "within_budget": false
+          }
+        },
+        {
+          "seq": 4436,
+          "session_id": "67b65939065221c8b4ce35ea",
+          "turn_id": "6bf140c5a9c42292f1914e96",
+          "type": "playback.report",
+          "at": 1793635710.335,
+          "data": {
+            "audio_within_budget": false,
+            "av_skew_ms": -12.799999952316284,
+            "diagnostic_within_budget": false,
+            "elapsed_ms": 3017,
+            "meaningful": true,
+            "modality": "audio_video",
+            "origin": "text",
+            "qualifies": true,
+            "turn_id": "6bf140c5a9c42292f1914e96",
+            "within_budget": false
+          }
+        },
+        {
+          "seq": 4452,
+          "session_id": "67b65939065221c8b4ce35ea",
+          "turn_id": "6bf140c5a9c42292f1914e96",
+          "type": "intervention.request",
+          "at": 1793635711.201,
+          "data": {
+            "action": "play_after_speech",
+            "execution_id": "213edfd683d5957b037a466c"
+          }
+        },
+        {
+          "seq": 4453,
+          "session_id": "67b65939065221c8b4ce35ea",
+          "turn_id": "6bf140c5a9c42292f1914e96",
+          "type": "turn.finished",
+          "at": 1793635711.201,
+          "data": {
+            "duration_ms": 3870.352,
+            "note": "生成耗时不是音画反馈时间"
+          }
+        }
+      ],
+      "support": {
+        "version": 3,
+        "mode": "mindfulness",
+        "status": "awaiting_feedback",
+        "goal": "",
+        "stage": "attention",
+        "parameters": {
+          "duration_seconds": 264,
+          "playback_rate": 1,
+          "max_characters": 160,
+          "question_depth": 1,
+          "question_every": 2,
+          "action_minutes": 2
+        },
+        "facts": {},
+        "dialogue_turns": 0,
+        "no_help_count": 0,
+        "execution": {
+          "id": "213edfd683d5957b037a466c",
+          "turn_id": "6bf140c5a9c42292f1914e96",
+          "mode": "mindfulness",
+          "kind": "video",
+          "card_id": "attention-observation",
+          "status": "interrupted",
+          "parameters": {
+            "duration_seconds": 264,
+            "playback_rate": 1,
+            "max_characters": 160,
+            "question_depth": 1,
+            "question_every": 2,
+            "action_minutes": 2
+          },
+          "presented": true,
+          "played_ms": 36699,
+          "feedback_recorded": false,
+          "started_at": 1793635716215
+        },
+        "last_decision": {
+          "kind": "playback",
+          "reason": "客户端确认内容呈现或实际播放",
+          "source": "user_control",
+          "at": 1793635753078
+        },
+        "last_adjustment_turn": 0
+      }
+    },
+    "listen": {
+      "session_id": "de15ccf170a0a643e4088a08",
+      "events": [
+        {
+          "seq": 4462,
+          "session_id": "de15ccf170a0a643e4088a08",
+          "turn_id": "d51d5db2576aab5d40e09435",
+          "type": "tool.finished",
+          "at": 1793635791.78,
+          "data": {
+            "call_id": "call_822dda1974ac46d4ab269f47",
+            "elapsed_ms": 0.046,
+            "error": "",
+            "name": "set_support_mode",
+            "output": {
+              "applies_after_answer": true,
+              "mode": "humanistic",
+              "scheduled": true
+            },
+            "status": "ok"
+          }
+        },
+        {
+          "seq": 4475,
+          "session_id": "de15ccf170a0a643e4088a08",
+          "turn_id": "d51d5db2576aab5d40e09435",
+          "type": "assistant.message",
+          "at": 1793635792.415,
+          "data": {
+            "source": "llm",
+            "text": "好，我听着，你说吧。"
+          }
+        },
+        {
+          "seq": 4486,
+          "session_id": "de15ccf170a0a643e4088a08",
+          "turn_id": "d51d5db2576aab5d40e09435",
+          "type": "turn.finished",
+          "at": 1793635793.054,
+          "data": {
+            "duration_ms": 4195.408,
+            "note": "生成耗时不是音画反馈时间"
+          }
+        }
+      ],
+      "support": {
+        "version": 1,
+        "mode": "humanistic",
+        "status": "ready",
+        "goal": "",
+        "stage": "listening",
+        "parameters": {
+          "duration_seconds": 60,
+          "playback_rate": 1,
+          "max_characters": 160,
+          "question_depth": 1,
+          "question_every": 2,
+          "action_minutes": 2
+        },
+        "facts": {},
+        "dialogue_turns": 0,
+        "no_help_count": 0,
+        "last_decision": {
+          "kind": "start",
+          "reason": "根据当前对话由助手工具选择",
+          "source": "llm_tool",
+          "at": 1793635793054
+        },
+        "last_adjustment_turn": 0
+      }
+    },
+    "ordinary": {
+      "session_id": "27efbf1e17a2042e60f6e35c",
+      "events": [
+        {
+          "seq": 4497,
+          "session_id": "27efbf1e17a2042e60f6e35c",
+          "turn_id": "d17855d5590ac5a43faff66a",
+          "type": "assistant.message",
+          "at": 1793635793.614,
+          "data": {
+            "source": "llm",
+            "text": "4。"
+          }
+        },
+        {
+          "seq": 4503,
+          "session_id": "27efbf1e17a2042e60f6e35c",
+          "turn_id": "d17855d5590ac5a43faff66a",
+          "type": "turn.finished",
+          "at": 1793635793.912,
+          "data": {
+            "duration_ms": 854.669,
+            "note": "生成耗时不是音画反馈时间"
+          }
+        }
+      ],
+      "support": {
+        "version": 0,
+        "mode": "",
+        "status": "",
+        "goal": "",
+        "stage": "",
+        "parameters": {
+          "duration_seconds": 0,
+          "playback_rate": 0,
+          "max_characters": 0,
+          "question_depth": 0,
+          "question_every": 0,
+          "action_minutes": 0
+        },
+        "facts": {},
+        "dialogue_turns": 0,
+        "no_help_count": 0,
+        "last_decision": {
+          "kind": "",
+          "reason": "",
+          "source": "",
+          "at": 0
+        },
+        "last_adjustment_turn": 0
+      }
+    },
+    "support_to_video": {
+      "session_id": "de15ccf170a0a643e4088a08",
+      "events": [
+        {
+          "seq": 4512,
+          "session_id": "de15ccf170a0a643e4088a08",
+          "turn_id": "86c75e867b772bc3572488cd",
+          "type": "tool.finished",
+          "at": 1793635857.481,
+          "data": {
+            "call_id": "call_0a477b36ef974d758379713c",
+            "elapsed_ms": 0.311,
+            "error": "",
+            "name": "start_mindfulness",
+            "output": {
+              "applies_after_answer": true,
+              "can_stop": true,
+              "duration_seconds": 264,
+              "mode": "mindfulness",
+              "playback_started": false,
+              "scheduled": true,
+              "title": "三分钟呼吸空间练习"
+            },
+            "status": "ok"
+          }
+        },
+        {
+          "seq": 4523,
+          "session_id": "de15ccf170a0a643e4088a08",
+          "turn_id": "86c75e867b772bc3572488cd",
+          "type": "assistant.message",
+          "at": 1793635860.04,
+          "data": {
+            "execution_id": "364252db65c34231ef2b74c0",
+            "source": "llm",
+            "text": "这次回应未通过内容检查。你可以继续说，我会以你明确表达的内容为准。"
+          }
+        },
+        {
+          "seq": 4550,
+          "session_id": "de15ccf170a0a643e4088a08",
+          "turn_id": "86c75e867b772bc3572488cd",
+          "type": "turn.finished",
+          "at": 1793635860.832,
+          "data": {
+            "duration_ms": 4010.159,
+            "note": "生成耗时不是音画反馈时间"
+          }
+        }
+      ],
+      "support": {
+        "version": 2,
+        "mode": "humanistic",
+        "status": "awaiting_feedback",
+        "goal": "",
+        "stage": "listening",
+        "parameters": {
+          "duration_seconds": 60,
+          "playback_rate": 1,
+          "max_characters": 160,
+          "question_depth": 1,
+          "question_every": 2,
+          "action_minutes": 2
+        },
+        "facts": {},
+        "dialogue_turns": 1,
+        "no_help_count": 0,
+        "execution": {
+          "id": "364252db65c34231ef2b74c0",
+          "turn_id": "86c75e867b772bc3572488cd",
+          "mode": "humanistic",
+          "kind": "dialogue",
+          "card_id": "reflect-need",
+          "status": "generated",
+          "parameters": {
+            "duration_seconds": 60,
+            "playback_rate": 1,
+            "max_characters": 160,
+            "question_depth": 1,
+            "question_every": 2,
+            "action_minutes": 2
+          },
+          "presented": false,
+          "played_ms": 0,
+          "feedback_recorded": false
+        },
+        "last_decision": {
+          "kind": "answer",
+          "reason": "依据当前原话、已知事实和方法卡选择；风险=ordinary",
+          "source": "86c75e867b772bc3572488cd",
+          "at": 1793635858657
+        },
+        "last_adjustment_turn": 0
+      }
+    },
+    "support_off": {
+      "session_id": "de15ccf170a0a643e4088a08",
+      "events": [
+        {
+          "seq": 4558,
+          "session_id": "de15ccf170a0a643e4088a08",
+          "turn_id": "538202ad2f31140af8d83f7b",
+          "type": "tool.finished",
+          "at": 1793635861.577,
+          "data": {
+            "call_id": "call_0e10b901725c43c6a551d92c",
+            "elapsed_ms": 0.063,
+            "error": "",
+            "name": "set_support_mode",
+            "output": {
+              "applies_after_answer": true,
+              "mode": "off",
+              "scheduled": true
+            },
+            "status": "ok"
+          }
+        },
+        {
+          "seq": 4571,
+          "session_id": "de15ccf170a0a643e4088a08",
+          "turn_id": "538202ad2f31140af8d83f7b",
+          "type": "assistant.message",
+          "at": 1793635862.875,
+          "data": {
+            "execution_id": "5bc79b4025510e0cefda6b4f",
+            "source": "llm",
+            "text": "好，不做了，我们随便聊。"
+          }
+        },
+        {
+          "seq": 4584,
+          "session_id": "de15ccf170a0a643e4088a08",
+          "turn_id": "538202ad2f31140af8d83f7b",
+          "type": "turn.finished",
+          "at": 1793635863.353,
+          "data": {
+            "duration_ms": 2516.585,
+            "note": "生成耗时不是音画反馈时间"
+          }
+        }
+      ],
+      "support": {
+        "version": 4,
+        "mode": "humanistic",
+        "status": "stopped",
+        "goal": "",
+        "stage": "listening",
+        "parameters": {
+          "duration_seconds": 60,
+          "playback_rate": 1,
+          "max_characters": 160,
+          "question_depth": 1,
+          "question_every": 2,
+          "action_minutes": 2
+        },
+        "facts": {},
+        "dialogue_turns": 2,
+        "no_help_count": 0,
+        "execution": {
+          "id": "5bc79b4025510e0cefda6b4f",
+          "turn_id": "538202ad2f31140af8d83f7b",
+          "mode": "humanistic",
+          "kind": "dialogue",
+          "card_id": "reflect-need",
+          "status": "interrupted",
+          "parameters": {
+            "duration_seconds": 60,
+            "playback_rate": 1,
+            "max_characters": 160,
+            "question_depth": 1,
+            "question_every": 2,
+            "action_minutes": 2
+          },
+          "presented": false,
+          "played_ms": 0,
+          "feedback_recorded": false
+        },
+        "last_decision": {
+          "kind": "stop",
+          "reason": "根据当前对话由助手工具选择",
+          "source": "llm_tool",
+          "at": 1793635863353
+        },
+        "last_adjustment_turn": 0
+      }
+    },
+    "final_listen": {
+      "session_id": "cd676ffb4f3fede38f801014",
+      "events": [
+        {
+          "seq": 4596,
+          "session_id": "cd676ffb4f3fede38f801014",
+          "turn_id": "91d874c7516f2a1d847c3a7c",
+          "type": "tool.finished",
+          "at": 1793636118.009,
+          "data": {
+            "call_id": "call_5c0efa99adb042e390cbb249",
+            "elapsed_ms": 0.033,
+            "error": "",
+            "name": "set_support_mode",
+            "output": {
+              "applies_after_answer": true,
+              "mode": "humanistic",
+              "scheduled": true
+            },
+            "status": "ok"
+          }
+        },
+        {
+          "seq": 4615,
+          "session_id": "cd676ffb4f3fede38f801014",
+          "turn_id": "91d874c7516f2a1d847c3a7c",
+          "type": "assistant.message",
+          "at": 1793636118.891,
+          "data": {
+            "source": "llm",
+            "text": "好，我听着，不打断你，也不给建议。你想说多少都行。"
+          }
+        },
+        {
+          "seq": 4642,
+          "session_id": "cd676ffb4f3fede38f801014",
+          "turn_id": "91d874c7516f2a1d847c3a7c",
+          "type": "turn.finished",
+          "at": 1793636120.077,
+          "data": {
+            "duration_ms": 5262.315,
+            "note": "生成耗时不是音画反馈时间"
+          }
+        }
+      ],
+      "support": {
+        "version": 1,
+        "mode": "humanistic",
+        "status": "ready",
+        "goal": "",
+        "stage": "listening",
+        "parameters": {
+          "duration_seconds": 60,
+          "playback_rate": 1,
+          "max_characters": 160,
+          "question_depth": 1,
+          "question_every": 2,
+          "action_minutes": 2
+        },
+        "facts": {},
+        "dialogue_turns": 0,
+        "no_help_count": 0,
+        "last_decision": {
+          "kind": "start",
+          "reason": "根据当前对话由助手工具选择",
+          "source": "llm_tool",
+          "at": 1793636120077
+        },
+        "last_adjustment_turn": 0
+      }
+    },
+    "final_support_to_video": {
+      "session_id": "cd676ffb4f3fede38f801014",
+      "events": [
+        {
+          "seq": 4650,
+          "session_id": "cd676ffb4f3fede38f801014",
+          "turn_id": "1dce6f5b9644fba684987ba4",
+          "type": "tool.finished",
+          "at": 1793636121.096,
+          "data": {
+            "call_id": "call_b9bde7c512bf43a0b740b72d",
+            "elapsed_ms": 1.095,
+            "error": "",
+            "name": "start_mindfulness",
+            "output": {
+              "applies_after_answer": true,
+              "can_stop": true,
+              "duration_seconds": 264,
+              "mode": "mindfulness",
+              "playback_started": false,
+              "scheduled": true,
+              "title": "三分钟呼吸空间练习"
+            },
+            "status": "ok"
+          }
+        },
+        {
+          "seq": 4663,
+          "session_id": "cd676ffb4f3fede38f801014",
+          "turn_id": "1dce6f5b9644fba684987ba4",
+          "type": "assistant.message",
+          "at": 1793636122.662,
+          "data": {
+            "execution_id": "4d877d5bdf95f5272647ff13",
+            "source": "llm",
+            "text": "好，接下来为你播放这段正念练习视频，你想停随时都可以停。"
+          }
+        },
+        {
+          "seq": 4687,
+          "session_id": "cd676ffb4f3fede38f801014",
+          "turn_id": "1dce6f5b9644fba684987ba4",
+          "type": "intervention.request",
+          "at": 1793636123.599,
+          "data": {
+            "action": "play_after_speech",
+            "execution_id": "8f1cfce1c1147a2595aae26d"
+          }
+        },
+        {
+          "seq": 4689,
+          "session_id": "cd676ffb4f3fede38f801014",
+          "turn_id": "1dce6f5b9644fba684987ba4",
+          "type": "turn.finished",
+          "at": 1793636123.599,
+          "data": {
+            "duration_ms": 3519.521,
+            "note": "生成耗时不是音画反馈时间"
+          }
+        }
+      ],
+      "support": {
+        "version": 3,
+        "mode": "mindfulness",
+        "status": "ready",
+        "goal": "",
+        "stage": "attention",
+        "parameters": {
+          "duration_seconds": 264,
+          "playback_rate": 1,
+          "max_characters": 160,
+          "question_depth": 1,
+          "question_every": 2,
+          "action_minutes": 2
+        },
+        "facts": {},
+        "dialogue_turns": 1,
+        "no_help_count": 0,
+        "execution": {
+          "id": "8f1cfce1c1147a2595aae26d",
+          "turn_id": "1dce6f5b9644fba684987ba4",
+          "mode": "mindfulness",
+          "kind": "video",
+          "card_id": "attention-observation",
+          "status": "queued",
+          "parameters": {
+            "duration_seconds": 264,
+            "playback_rate": 1,
+            "max_characters": 160,
+            "question_depth": 1,
+            "question_every": 2,
+            "action_minutes": 2
+          },
+          "presented": false,
+          "played_ms": 0,
+          "feedback_recorded": false
+        },
+        "last_decision": {
+          "kind": "start",
+          "reason": "根据当前对话由助手工具选择",
+          "source": "llm_tool",
+          "at": 1793636123599
+        },
+        "last_adjustment_turn": 0
+      }
+    },
+    "final_support_off": {
+      "session_id": "cd676ffb4f3fede38f801014",
+      "events": [
+        {
+          "seq": 4698,
+          "session_id": "cd676ffb4f3fede38f801014",
+          "turn_id": "224d28ceb7344d01cf6dbfcb",
+          "type": "tool.finished",
+          "at": 1793636124.363,
+          "data": {
+            "call_id": "call_ac45a073785a4184b7a7f7bf",
+            "elapsed_ms": 0.03,
+            "error": "",
+            "name": "set_support_mode",
+            "output": {
+              "applies_after_answer": true,
+              "mode": "off",
+              "scheduled": true
+            },
+            "status": "ok"
+          }
+        },
+        {
+          "seq": 4711,
+          "session_id": "cd676ffb4f3fede38f801014",
+          "turn_id": "224d28ceb7344d01cf6dbfcb",
+          "type": "assistant.message",
+          "at": 1793636126.41,
+          "data": {
+            "execution_id": "f8e3763570a06bdfd082236b",
+            "source": "llm",
+            "text": "好，已经退出交流支持，我们普通聊天。"
+          }
+        },
+        {
+          "seq": 4733,
+          "session_id": "cd676ffb4f3fede38f801014",
+          "turn_id": "224d28ceb7344d01cf6dbfcb",
+          "type": "turn.finished",
+          "at": 1793636127.305,
+          "data": {
+            "duration_ms": 3702.195,
+            "note": "生成耗时不是音画反馈时间"
+          }
+        }
+      ],
+      "support": {
+        "version": 6,
+        "mode": "mindfulness",
+        "status": "stopped",
+        "goal": "",
+        "stage": "attention",
+        "parameters": {
+          "duration_seconds": 264,
+          "playback_rate": 1,
+          "max_characters": 160,
+          "question_depth": 1,
+          "question_every": 2,
+          "action_minutes": 2
+        },
+        "facts": {
+          "need": {
+            "quote": "不做练习了，退出交流支持，我们普通聊天就好，简单确认一句。",
+            "turn_id": "224d28ceb7344d01cf6dbfcb"
+          }
+        },
+        "dialogue_turns": 2,
+        "no_help_count": 0,
+        "execution": {
+          "id": "f8e3763570a06bdfd082236b",
+          "turn_id": "224d28ceb7344d01cf6dbfcb",
+          "mode": "mindfulness",
+          "kind": "dialogue",
+          "card_id": "attention-observation",
+          "status": "interrupted",
+          "parameters": {
+            "duration_seconds": 264,
+            "playback_rate": 1,
+            "max_characters": 160,
+            "question_depth": 1,
+            "question_every": 2,
+            "action_minutes": 2
+          },
+          "presented": false,
+          "played_ms": 0,
+          "feedback_recorded": false
+        },
+        "last_decision": {
+          "kind": "stop",
+          "reason": "根据当前对话由助手工具选择",
+          "source": "llm_tool",
+          "at": 1793636127305
+        },
+        "last_adjustment_turn": 0
+      }
+    }
+  },
+  "perception": {
+    "fixture": "existing public colorado-2022 portrait",
+    "face_detected": true,
+    "au_count": 12,
+    "au_source": "libreface_2_0_repvgg_fm2026",
+    "expression_source": "enet_b2_8",
+    "inference_ms": 812.6,
+    "semantic_accuracy_evaluated": false
+  },
+  "checks": {
+    "frontend_tests": 88,
+    "frontend_build": "passed",
+    "go_race_all": "passed",
+    "go_build": "passed"
+  },
+  "latency_boundary": {
+    "input": "text",
+    "observed_audio_start_ms": 3002.7,
+    "observed_av_skew_ms": -12.8,
+    "voice_three_second_acceptance": "not tested in this change"
+  }
+}

@@ -9,7 +9,7 @@ import { LatencyTracker, type LatencyState } from './latency'
 import { FaceRigControl, HEAD_AXES, type HeadOverrides, type FaceRigSnapshot } from './faceRig'
 import { FaceAnalysis, type FaceObservation } from './faceAnalysis'
 import { appendErrorEntry } from './eventErrors'
-import { PracticeClock, newerSupport, type SupportCommand, type SupportState } from './intervention'
+import { PracticeClock, PracticeLaunch, newerSupport, supportDefaults, type SupportCommand, type SupportState } from './intervention'
 import type { AudioSegment, Entry, HarnessEvent, MotionFrame, Renderer, Session, State } from './types'
 
 export async function api<T>(path: string, options?: RequestInit): Promise<T> {
@@ -23,8 +23,9 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
   const state = ref<State | null>(null), sessions = ref<Session[]>([]), selected = ref<Session | null>(null)
   const entries = ref<Entry[]>([]), connected = ref(false), busy = ref(false), playing = ref(false), error = ref('')
   const support = ref<SupportState>({ version: 0 }), supportPending = ref(false), practicePlaying = ref(false), practiceProgress = ref(0)
-  let supportVideo: HTMLVideoElement | null = null, practiceTimer: ReturnType<typeof setInterval> | undefined, practiceClock: PracticeClock | null = null, practiceID = ''
+  let supportVideo: HTMLVideoElement | null = null, practiceTimer: ReturnType<typeof setInterval> | undefined, practiceClock: PracticeClock | null = null, practiceID = '', practiceGeneration = 0
   let supportQueue: Promise<unknown> = Promise.resolve()
+  const practiceLaunch = new PracticeLaunch()
   function supportCommand(command: SupportCommand): Promise<void> {
     const sid = selected.value?.id
     const generation = selectionGeneration
@@ -46,20 +47,42 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
     return job
   }
   function stopPractice(report = true) {
+    practiceLaunch.cancel()
+    practiceGeneration++
     clearInterval(practiceTimer); practiceTimer = undefined
     supportVideo?.pause()
     const id = practiceID, played = Math.round(practiceClock?.elapsed || practiceProgress.value)
     practicePlaying.value = false; practiceID = ''; practiceClock = null
     if (report && id) void supportCommand({ operation: 'playback', execution_id: id, event: 'stopped', played_ms: played })
   }
+  function finishPractice() {
+    const execution = support.value.execution, id = practiceID
+    if (!execution || !id) return
+    const played = Math.round(practiceClock?.elapsed || practiceProgress.value)
+    if (played < execution.parameters.duration_seconds * 1000 - 500) { stopPractice(); return }
+    stopPractice(false)
+    void supportCommand({ operation: 'playback', execution_id: id, event: 'completed', played_ms: played })
+  }
+  async function startMindfulness() {
+    const video = state.value?.practice_video, sid = selected.value?.id, generation = selectionGeneration
+    if (!video?.available || !sid || supportPending.value) return
+    await changeSupport({ operation: 'start', mode: 'mindfulness', parameters: { ...supportDefaults('mindfulness'), duration_seconds: video.duration_seconds } })
+    await nextTick()
+    if (selected.value?.id === sid && generation === selectionGeneration) await playPractice()
+  }
   async function playPractice() {
     const execution = support.value.execution, video = supportVideo
     if (!execution || execution.kind !== 'video' || execution.status !== 'queued' || !video) return
     const sid = selected.value?.id, generation = selectionGeneration
     stopPractice(false)
+    const playbackGeneration = practiceGeneration
+    closeFacePanel()
+    video.muted = !state.value?.practice_video?.has_audio
+    video.volume = 1
     video.currentTime = 0; video.playbackRate = execution.parameters.playback_rate
     try {
       await video.play()
+      if (playbackGeneration !== practiceGeneration) return
       if (selected.value?.id !== sid || generation !== selectionGeneration || support.value.execution?.id !== execution.id) { video.pause(); return }
       practiceID = execution.id; practiceClock = new PracticeClock(); practiceProgress.value = 0; practicePlaying.value = true
       await supportCommand({ operation: 'playback', execution_id: execution.id, event: 'playing', played_ms: 0 })
@@ -68,13 +91,12 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
         if (!practiceClock || practiceID !== execution.id || selected.value?.id !== sid) { stopPractice(false); return }
         practiceProgress.value = Math.min(execution.parameters.duration_seconds * 1000, practiceClock.update(performance.now(), video.currentTime, !video.paused && video.readyState >= 2, document.visibilityState === 'visible'))
         if (practiceProgress.value >= execution.parameters.duration_seconds * 1000) {
-          const played = Math.round(practiceProgress.value)
-          stopPractice(false)
-          void supportCommand({ operation: 'playback', execution_id: execution.id, event: 'completed', played_ms: played })
+          finishPractice()
         }
       }, 100)
-    } catch (exc) { stopPractice(false); notice(`练习视频暂时无法播放：${String(exc)}`, 'error') }
+    } catch (exc) { if (playbackGeneration === practiceGeneration) { stopPractice(false); notice(`练习视频暂时无法播放：${String(exc)}`, 'error') } }
   }
+  function practiceVideoError() { stopPractice(); notice('练习视频暂时无法播放，请稍后重试。', 'error') }
   async function changeSupport(command: SupportCommand) {
     stopPractice()
     await supportQueue.catch(() => {})
@@ -282,6 +304,7 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
     if (!replay && turnId && blockedTurns.has(turnId)) return
     switch (event.type) {
       case 'turn.started':
+        if (!replay) practiceLaunch.cancel()
         if (!replay) emotionDemo.cancel()
         if (!replay && event.turn_id) expressionControl.begin(event.turn_id)
         if (!replay && event.turn_id) latencyTracker.begin(event.turn_id, data.source === 'voice' ? 'voice' : 'text')
@@ -309,6 +332,9 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
       case 'intervention.state':
         if (data.state) support.value = newerSupport(support.value, data.state)
         break
+      case 'intervention.request':
+        if (!replay && event.turn_id && activeTurn.value === event.turn_id && data.action === 'play_after_speech' && support.value.execution?.id === data.execution_id) practiceLaunch.schedule(event.turn_id, data.execution_id)
+        break
       case 'tool.started': entries.value.push({ id: `tool-${data.call_id}`, at, kind: 'tool', text: '', name: data.name, status: 'running', args: data.arguments, turn_id: turnId }); break
       case 'tool.finished': {
         let entry = entries.value.find(item => item.id === `tool-${data.call_id}`)
@@ -324,8 +350,13 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
       case 'pipeline.timing': if (!replay) latencyTracker.timing(event.turn_id, data); break
       case 'pipeline.audio': if (!replay && data.audio_base64 && activeTurn.value === event.turn_id) { if (renderer.value.kind === 'lam') speechBatcher.add(data as any); else void audio.play(data as any).catch(exc => notice(String(exc), 'error')) }; break
       case 'session.cleared': stopPractice(false); support.value = { version: 0 }; entries.value = []; duration.value = null; break
-      case 'turn.cancelled': if (!event.turn_id || activeTurn.value === event.turn_id) { latencyTracker.cancel(); expressionControl.cancel(); speechBatcher.reset(); audio.stop(); busy.value = false; activeTurn.value = null }; break
-      case 'turn.finished': if (!replay) speechBatcher.flush(); busy.value = false; duration.value = data.duration_ms; break
+      case 'turn.cancelled': if (!event.turn_id || activeTurn.value === event.turn_id) { practiceLaunch.cancel(); latencyTracker.cancel(); expressionControl.cancel(); speechBatcher.reset(); audio.stop(); busy.value = false; activeTurn.value = null }; break
+      case 'turn.finished':
+        if (!replay) {
+          speechBatcher.flush()
+          void nextTick().then(() => practiceLaunch.finish(event.turn_id || '', signal => audio.waitUntilIdle(signal), request => activeTurn.value === request.turn && support.value.execution?.id === request.execution && support.value.execution.status === 'queued', playPractice)).catch(exc => notice(String(exc), 'error'))
+        }
+        busy.value = false; duration.value = data.duration_ms; break
     }
     if (entries.value.length > 600) entries.value = entries.value.slice(-500)
   }
@@ -341,6 +372,7 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
     if (renderState.value !== 'error' && previous.kind === value.kind && previous.asset_url === value.asset_url && previous.url === value.url && previous.includes_audio === value.includes_audio && previous.driver === value.driver && previous.driver_url === value.driver_url) return
     emotionDemo.cancel()
     closeFacePanel()
+    speechBatcher.reset()
     renderer.value = { ...value }; renderState.value = value.kind === 'none' ? 'none' : 'loading'; renderError.value = ''
   }
   function setRenderStatus(value: string, message = '') { renderState.value = value; renderError.value = message; if (value === 'error') notice(`形象显示失败：${message}`, 'error') }
@@ -454,5 +486,5 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
     catch (exc) { liveVoice.close(); if (generation === micGeneration && (exc as Error).name !== 'AbortError') { micState.value = 'error'; notice(deviceError(exc, '麦克风'), 'error') } }
   }
   onUnmounted(() => { stopPractice(false); if (selected.value) void api(`/api/sessions/${selected.value.id}/stop`, { method: 'POST' }).catch(() => {}); faceAnalysis.stop(); emotionDemo.cancel(); clearInterval(demoFacePoll); clearInterval(facePoll); latencyTracker.cancel(); expressionControl.cancel(); speechBatcher.reset(); liveVoice.close(); stream?.close(); asrAbort?.abort(); audio.stop(); cameraGeneration++; micGeneration++; cameraStream.value?.getTracks().forEach(track => track.stop()); void voice.stop(); timers.forEach(timer => clearTimeout(timer)) })
-  return { support, supportPending, practicePlaying, practiceProgress, changeSupport, playPractice, stopPractice, bindSupportVideo: (value: HTMLVideoElement | null) => { supportVideo = value }, cameraVideo, analysisState, faceObservation, voiceEmotion, toggleAnalysis, demo, demoActive, toggleEmotionDemo, closeEmotionDemo, facePanelOpen, faceSupported, faceLive, faceOverrides, headSupported, headLive, headOverrides, toggleFacePanel, closeFacePanel, resetFace, setFaceChannel, setHeadAxis, previewBrow, listening, userSpeaking, latency, expressionState, setExpressionMode: (mode: string) => { resetFace(); expressionControl.setMode(mode) }, state, sessions, selected, entries, connected, busy, playing, error, duration, activeTurn, character, moduleStates, renderer, renderState, renderError, cameraStream, cameraState, micState, micLevel, liveTranscript, voiceConnectionState, feedback, mediaHooks, init, select, newSession, send, stop, clear, toggleCamera, toggleMic, resolveAvatar, setRenderer, setRenderStatus, notice }
+  return { support, supportPending, practicePlaying, practiceProgress, changeSupport, startMindfulness, playPractice, stopPractice, finishPractice, practiceVideoError, bindSupportVideo: (value: HTMLVideoElement | null) => { supportVideo = value }, cameraVideo, analysisState, faceObservation, voiceEmotion, toggleAnalysis, demo, demoActive, toggleEmotionDemo, closeEmotionDemo, facePanelOpen, faceSupported, faceLive, faceOverrides, headSupported, headLive, headOverrides, toggleFacePanel, closeFacePanel, resetFace, setFaceChannel, setHeadAxis, previewBrow, listening, userSpeaking, latency, expressionState, setExpressionMode: (mode: string) => { resetFace(); expressionControl.setMode(mode) }, state, sessions, selected, entries, connected, busy, playing, error, duration, activeTurn, character, moduleStates, renderer, renderState, renderError, cameraStream, cameraState, micState, micLevel, liveTranscript, voiceConnectionState, feedback, mediaHooks, init, select, newSession, send, stop, clear, toggleCamera, toggleMic, resolveAvatar, setRenderer, setRenderStatus, notice }
 }

@@ -20,3 +20,23 @@ export class PracticeClock {
     return this.elapsed
   }
 }
+// A tool request is tied to one live turn, and waits for observed audio end.
+export class PracticeLaunch {
+  private request: { turn: string; execution: string } | null = null
+  private controller: AbortController | null = null
+  schedule(turn: string, execution: string) { this.cancel(); this.request = { turn, execution } }
+  cancel() { this.request = null; this.controller?.abort(); this.controller = null }
+  async finish(turn: string, wait: (signal: AbortSignal) => Promise<void>, current: (request: { turn: string; execution: string }) => boolean, play: () => Promise<void>) {
+    const request = this.request
+    if (!request || request.turn !== turn) return
+    this.request = null
+    const controller = new AbortController()
+    this.controller = controller
+    try {
+      await wait(controller.signal)
+      if (!controller.signal.aborted && current(request)) await play()
+    } catch (error) {
+      if (!controller.signal.aborted) throw error
+    } finally { if (this.controller === controller) this.controller = null }
+  }
+}

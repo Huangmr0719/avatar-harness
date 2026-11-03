@@ -39,7 +39,7 @@ func (p Parameters) Validate() error {
 	if math.IsNaN(p.PlaybackRate) || math.IsInf(p.PlaybackRate, 0) {
 		return fmt.Errorf("支持参数必须是有限数值")
 	}
-	if p.DurationSeconds < 15 || p.DurationSeconds > 90 || p.PlaybackRate < .75 || p.PlaybackRate > 1.25 || p.MaxCharacters < 60 || p.MaxCharacters > 400 || p.QuestionDepth < 0 || p.QuestionDepth > 2 || p.QuestionEvery < 1 || p.QuestionEvery > 4 || p.ActionMinutes < 1 || p.ActionMinutes > 5 {
+	if p.DurationSeconds < 15 || p.DurationSeconds > 300 || p.PlaybackRate < .75 || p.PlaybackRate > 1.25 || p.MaxCharacters < 60 || p.MaxCharacters > 400 || p.QuestionDepth < 0 || p.QuestionDepth > 2 || p.QuestionEvery < 1 || p.QuestionEvery > 4 || p.ActionMinutes < 1 || p.ActionMinutes > 5 {
 		return fmt.Errorf("支持参数超出允许范围")
 	}
 	return nil

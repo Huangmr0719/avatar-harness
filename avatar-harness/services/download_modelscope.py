@@ -1,6 +1,7 @@
 """Download public ModelScope files with per-file revision and SHA256 checks."""
 import argparse
 import concurrent.futures
+from fnmatch import fnmatchcase
 import hashlib
 import json
 import os
@@ -25,17 +26,22 @@ def main():
     parser.add_argument('repo')
     parser.add_argument('destination', type=Path)
     parser.add_argument('--workers', type=int, default=2)
+    parser.add_argument('--revision', default='master')
+    parser.add_argument('--include', action='append', default=[], help='Download only matching repository paths; repeat as needed')
     args = parser.parse_args()
     root = args.destination.resolve()
     root.mkdir(parents=True, exist_ok=True)
     response = requests.get('https://modelscope.cn/api/v1/models/' + args.repo + '/repo/files',
-                            params={'Revision': 'master', 'Recursive': 'true'}, timeout=(20, 60))
+                            params={'Revision': args.revision, 'Recursive': 'true'}, timeout=(20, 60))
     response.raise_for_status()
     metadata = response.json()
     if metadata.get('Code') != 200:
         raise RuntimeError('ModelScope repository metadata unavailable')
-    files = [f for f in metadata['Data']['Files'] if f['Type'] == 'blob']
-    (root / 'download-manifest.json').write_text(json.dumps({'repo': args.repo, 'files': files}, indent=2))
+    files = [f for f in metadata['Data']['Files'] if f['Type'] == 'blob'
+             and (not args.include or any(fnmatchcase(f['Path'], pattern) for pattern in args.include))]
+    if not files:
+        raise RuntimeError('No repository files match the requested selection')
+    (root / 'download-manifest.json').write_text(json.dumps({'repo': args.repo, 'revision': args.revision, 'files': files}, indent=2))
 
     def download(item):
         path = root / item['Path']
