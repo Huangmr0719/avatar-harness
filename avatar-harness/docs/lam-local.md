@@ -47,6 +47,18 @@
 
 当前导出动画已使用 `scripts/prepare-lam-avatar.py` 适配片段顺序。其他资产若片段不同，需检查动画状态映射；不要用 GLTFLoader 加载整个 LAM ZIP。
 
+### 新角色的统一姿态与眼球遮挡
+
+LAM 创建服务导出 ZIP 后自动运行 `scripts/prepare-lam-avatar.py`（data2 的执行副本为 `tools/prepare-lam-avatar.py`），再保存到角色列表：
+
+- 在所有头部动画关键帧上增加固定的低头 6° 偏移，保留原有转头和点头变化。`harness_calibration.json` 记录已应用角度，再次处理不会叠加。
+- 从该角色 `skin.glb` 的三角网格连通分量识别双眼，生成各自的 `iris_occlusion.json`，由渲染器在眨眼、闭眼时淡出对应眼球。已有遮挡配置保留，不能套用另一角色的索引。
+- 不修改照片、几何、形变、骨骼绑定、`offset.ply` 或 `vertex_order.json`。原始 ZIP 与输出必须分开；此处理针对对话角色资产，不修改上游生成的预览视频。
+
+支持当前 LAM-20K 的一个面部、两个独立眼球网格和 LINEAR 头部旋转动画。不支持的结构会明确报错。眼球遮挡缓解闭眼残影，不能修复单张照片重建出的所有几何缺陷。
+
+离线检查：`python3 -m unittest discover -s scripts -p 'test_prepare_lam_avatar.py' -v`。对真实角色还可使用 `web/scripts/lam-pose.mjs inspect` 比较处理前后姿态；此固定偏移不同于旧的逐片段水平校准，因此不要再叠加旧脚本的 `level`。
+
 ## 真实语音与同步
 
 百炼 PCM 包先合并为约 400ms，大包分块并限制每块最多 500ms，避免首个音频块触发多次推理后才起播；短尾等 70ms 后刷新；采样率变化或 PTS 不连续时不合并。音频重采样到单声道 16kHz，以滚动 1 秒上下文推理，只取新增音频对应的后缀帧。面部帧生成后，音频进入 AudioContext 排程，动作依照实际排程 PTS 读取。
