@@ -1,12 +1,33 @@
 """Attach automatic Harness saving to the existing LAM Gradio generator."""
 import html
 from contextlib import nullcontext
+from functools import wraps
 import json
 import os
 from pathlib import Path
 import sys
 from urllib.parse import urlencode
 from urllib.request import ProxyHandler, Request, build_opener
+
+
+def generation_handler(fn, gr, default_motion):
+    @wraps(fn)
+    def generate(image_path, video_params, working_dir, enable_oac_file):
+        if not image_path:
+            raise gr.Error('请先上传一张清晰的正面人像照片。')
+        try:
+            return fn(image_path, video_params or str(default_motion), working_dir, True)
+        except gr.Error:
+            raise
+        except Exception as error:
+            print('LAM generation failed:', error, file=sys.stderr, flush=True)
+            messages = {
+                'flametracking preprocess failed!': '照片预处理失败，未能检测到可用的人脸。请换用清晰、无遮挡的正面人像，脸部不要过小。',
+                'flametracking optimize failed!': '人脸拟合失败，请换一张角度更正、光线均匀的照片后重试。',
+                'flametracking export failed!': '人脸数据导出失败，请重试。',
+            }
+            raise gr.Error(messages.get(str(error), '形象生成失败，请稍后重试。')) from error
+    return generate
 
 
 def install(gr):
@@ -17,6 +38,14 @@ def install(gr):
         functions = list(demo.fns.values()) if isinstance(demo.fns, dict) else demo.fns
         index, generate = next((i, fn) for i, fn in enumerate(functions)
                                if getattr(fn.fn, '__name__', '') == 'core_fn')
+        root = Path(os.environ.get('AVATAR_SERVICE_ROOT', '/data2/huangmr/code/avatar-harness'))
+        motion = root / 'upstream/LAM/assets/sample_motion/export/D_ANgelo_Dinero/D_ANgelo_Dinero.mp4'
+        if not motion.is_file():
+            raise RuntimeError('LAM 默认预览动作文件缺失：' + str(motion))
+        video = generate.inputs[1]
+        video.value = video.postprocess(str(motion))
+        video.label = '预览动作（默认即可）'
+        generate.fn = generation_handler(generate.fn, gr, motion)
         archive = generate.outputs[-1]
         # A chatting avatar always needs the exported rig, not only a preview.
         export = generate.inputs[-1]
@@ -55,6 +84,7 @@ def install(gr):
             retry.click(save_avatar, inputs=[archive, name], outputs=[status, retry], queue=False)
         kwargs['root_path'] = '/create-avatar'
         kwargs['show_api'] = False
+        kwargs['show_error'] = True
         return launch(demo, *args, **kwargs)
 
     gr.Blocks.launch = linked_launch
