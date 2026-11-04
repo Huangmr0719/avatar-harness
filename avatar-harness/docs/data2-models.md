@@ -8,9 +8,12 @@ Mac 保留 Go harness、麦克风/摄像头采集和浏览器界面。data2 运�
 
 | 服务 | 模型 | 默认 GPU | data2 本机端口 |
 |---|---|---|---|
-| `lam-driver` | 官方 LAM-A2E streaming，完整 PyTorch 权重 | 0 | 18766 |
-| `lam-creator` | 官方 LAM-20K，单图头部重建和对话 ZIP 导出 | 1 | 18767 |
-| `lhm-creator` | 官方 LHMPP-700M-SMPLX-FREE，多视图人体重建 | 2 | 18768 |
+| `lam-driver` | 官方 LAM-A2E streaming，完整 PyTorch 权重 | 3 | 18766 |
+| `lam-creator` | 官方 LAM-20K，单图头部重建和对话 ZIP 导出 | 3 | 18767 |
+| `lhm-creator` | 官方 LHMPP-700M-SMPLX-FREE，多视图人体重建 | 3 | 18768 |
+| `libreface` | LibreFace 2.0 AU + EmotiEffNet 表情分析 | 3 | 18769 |
+
+四个模型服务默认共用物理 GPU 3，启动脚本中的 `AVATAR_GPU` 仍可显式覆盖。限制可见显卡后，程序内部的 `cuda:0` 对应物理 GPU 3。端口与工作台配置无需更改；修改分配后需重启相应模型服务。建模和实时驱动共用算力，重建时的响应延迟需另行测量。
 
 LHM++ 选择依据是已公开权重、多视图支持及标准 Gaussian PLY 导出；没有把未公开 PixelShuffle 权重或未实测的全局最优当作部署结果。LHM 输出不能直接当作 LAM ZIP 使用，人体渲染/驱动适配需单独实现。
 
@@ -59,11 +62,11 @@ ssh data2 'bash /data2/huangmr/code/avatar-harness/services/modelctl start lam-c
 ssh data2 'bash /data2/huangmr/code/avatar-harness/services/modelctl stop lam-creator'
 ```
 
-会话使用项目独立的 `runtime/tmp/tmux.sock`，日志在 `runtime/logs/`。`modelctl` 只管理本项目三个明确命名的会话。
+会话使用项目独立的 `runtime/tmp/tmux.sock`，日志在 `runtime/logs/`。`modelctl` 只管理本项目四个明确命名的会话。
 
 ## 依赖与来源
 
-- 实时驱动直接使用现成 `au_gen`。LAM/LHM 的专用依赖位于项目 `envs/`，通过只读路径复用同一套 PyTorch 2.2.2 / CUDA 11.8。没有重复下载或修改原 PyTorch。
+- 实时驱动与 LAM 建模使用 `envs/lam`，LHM 使用 `envs/lhm`；两个专用环境固定 Transformers 4.41.2 / Tokenizers 0.19.1，通过只读路径复用 `au_gen` 中的 PyTorch 2.2.2 / CUDA 11.8。共享环境的 Transformers 升级不会替换这些本地版本。没有重复下载或修改原 PyTorch。
 - 共用 CUDA 扩展在 `envs/cuda` 编译；LHM 对新版 SDPA 上下文和 uint32 网格索引做了等价兼容转换，模型参数未变。
 - LAM 学习参数完整加载；FLAME 的 `J_regressor_up` 缓冲由随附人脸模型构造。LHM 权重加载必须无缺失/尺寸不匹配。
 - LAM/LAM-A2E 权重固定 Hugging Face revision 并校验 SHA256；LHM++、先验与动作资产从魔搭逐文件固定 revision、校验 SHA256，清单在各模型目录的 `download-manifest.json`。
