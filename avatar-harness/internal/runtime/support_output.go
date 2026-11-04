@@ -3,12 +3,16 @@ package runtime
 import (
 	"encoding/json"
 	"strings"
+	"time"
 
 	"avatarharness/internal/intervention"
 )
 
+// Only deterministic limits are checked here. Optional model annotations do
+// not become a second semantic gate for speech already being streamed.
 func supportOutputIssues(s *supportTurn, text string) []string {
-	issues := intervention.CheckOutput(s.Next, s.Plan, text)
+	preview := intervention.Plan{Intent: "explore", Risk: s.Plan.Risk}
+	issues := intervention.CheckOutput(s.Next, preview, text)
 	return append(issues, intervention.CurrentResponseConstraints(s.User).Check(text)...)
 }
 
@@ -19,43 +23,33 @@ func supportActionLimits(user string, state intervention.State) intervention.Sta
 	return state
 }
 
-func resetSupportAction(s *supportTurn) {
-	s.Plan.Action = nil
-	s.Next.Action = s.Before.Clone().Action
-	if s.Plan.GoalQuote != "" && s.Plan.GoalQuote != s.Before.Goal {
-		s.Next.Action = nil
-	}
-}
-
-// Revisions are held until the complete response is checked. Read action
-// metadata AFTER speech in that same response, without another model call or
-// another state advance. Approved streaming continues using its prefix plan.
-func (r *Runtime) reconcileSupportAction(t *Turn, s *supportTurn, raw, speech string) {
-	var tail map[string]json.RawMessage
-	_ = json.Unmarshal([]byte(raw), &tail)
-	value, present := tail["final_action"]
-	if !present {
-		if s.Plan.Action != nil && !strings.Contains(speech, s.Plan.Action.Text) {
-			resetSupportAction(s)
-			r.Emit(t, "intervention.action_unrecorded", map[string]any{"reason": "corrected_speech_changed_proposal"})
+// Metadata is an optional tail of the SAME generation, never another request.
+// Missing or invalid annotations do not rewrite or block a valid answer.
+func (r *Runtime) applySupportMetadata(t *Turn, s *supportTurn, raw json.RawMessage, speech, executionID string) {
+	p := intervention.Plan{Intent: "answer"}
+	if len(raw) > 0 && string(raw) != "null" {
+		if err := json.Unmarshal(raw, &p); err != nil {
+			p = intervention.Plan{Intent: "answer"}
+			r.Emit(t, "intervention.plan_filtered", map[string]any{"fields": []string{"support"}})
+		} else {
+			normalized, err := r.normalizeSupportPlan(t, s.User, p, s.Before)
+			if err != nil {
+				p = intervention.Plan{Intent: "answer"}
+				r.Emit(t, "intervention.plan_filtered", map[string]any{"fields": []string{"support.intent"}})
+			} else {
+				p = normalized
+			}
 		}
-		return
 	}
-	resetSupportAction(s)
-	var action *intervention.Proposal
-	err := json.Unmarshal(value, &action)
-	if err == nil && action == nil {
-		return
+	if p.Action != nil && !strings.Contains(speech, p.Action.Text) {
+		p.Action = nil
+		r.Emit(t, "intervention.action_unrecorded", map[string]any{"reason": "proposal_missing_from_speech"})
 	}
-	if err == nil {
-		plan := s.Plan
-		plan.Action = action
-		err = plan.Validate(s.User, supportActionLimits(s.User, s.Before))
+	// A scheduled video remains a separate execution, not a life-action proposal.
+	if control := r.scheduledControl(t); control != nil && control.PlayVideo {
+		p.Intent, p.Action = "answer", nil
 	}
-	if err != nil || action == nil || !strings.Contains(speech, action.Text) {
-		r.Emit(t, "intervention.action_unrecorded", map[string]any{"reason": "invalid_final_proposal"})
-		return
-	}
-	s.Plan.Action = action
-	s.Next.Action = &intervention.Action{ID: s.Next.Execution.ID + "-action", Text: action.Text, Minutes: action.Minutes, Status: "proposed", Source: action.ConsentQuote}
+	p.Risk, p.RiskQuote = s.Plan.Risk, s.Plan.RiskQuote
+	s.Plan = p
+	s.Next = intervention.Advance(s.Before, p, t.ID, executionID, time.Now())
 }

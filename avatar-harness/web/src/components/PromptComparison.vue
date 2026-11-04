@@ -24,7 +24,7 @@ const fraction = (n: number, total: number) => total ? `${n} / ${total}` : '—'
     <header class="pc-topbar"><a href="/" class="pc-back">← 数字人工作台</a><span>独立对照演示</span><a href="/demo/emotions">情绪演示 ↗</a></header>
     <main class="pc-main">
       <section class="pc-intro">
-        <div><p class="pc-eyebrow">同题 · 同上下文 · 并行生成</p><h1>System Prompt 对照</h1><p class="pc-description">只切换行为与语音表达策略。比较两版怎样理解要求、承接上文、使用约束，并查看审校究竟改了多少。</p></div>
+        <div><p class="pc-eyebrow">同题 · 同上下文 · 并行生成</p><h1>System Prompt 对照</h1><p class="pc-description">只切换行为与语音表达策略。比较两版怎样理解要求、承接上文、使用约束，并查看实际输出与等待时间。</p></div>
         <div class="pc-model"><small>共同底座模型</small><strong :title="conditions?.model">{{ conditions?.model || '正在读取配置…' }}</strong><span>文字对照 · 不合成语音</span></div>
       </section>
 
@@ -37,7 +37,7 @@ const fraction = (n: number, total: number) => total ? `${n} / ${total}` : '—'
           <button v-if="running" class="pc-stop" @click="stop">停止对照</button>
           <button v-if="run" class="pc-secondary" @click="download">导出结果</button>
         </div>
-        <div class="pc-controls-summary"><span>{{ activeScenario?.turns.length || 0 }} 轮 × 两版</span><span>相同历史与记忆</span><span>共用风险检查</span><span>相同审校策略</span><span>{{ activeScenario?.signals ? '共用固定感知观察' : '不注入感知观察' }}</span></div>
+        <div class="pc-controls-summary"><span>{{ activeScenario?.turns.length || 0 }} 轮 × 两版</span><span>相同历史与记忆</span><span>共用风险检查</span><span>无模型审校</span><span>{{ activeScenario?.signals ? '共用固定感知观察' : '不注入感知观察' }}</span></div>
         <p class="pc-protocol">每轮使用预先约定的共同历史；两版刚生成的回答不会进入下一轮，避免上下文逐渐不同。窗口外原话检索同样保留，对照结果不写入正常会话。</p>
 
         <div v-if="selected === 'custom'" class="pc-custom" aria-label="自定义对话">
@@ -52,7 +52,7 @@ const fraction = (n: number, total: number) => total ? `${n} / ${total}` : '—'
         </div>
 
         <details v-else class="pc-preview"><summary>查看 {{ activeScenario?.turns.length || 0 }} 轮输入与验收约定</summary><ol><li v-for="(turn, i) in activeScenario?.turns" :key="i"><p>{{ turn.user }}</p><small>共同参考答复：{{ turn.reference_answer || '收到。' }}</small><ul><li v-for="check in turn.checks" :key="check.id">{{ check.label }}{{ check.kind === 'manual' ? ' · 人工项' : '' }}</li></ul></li></ol></details>
-        <details class="pc-specification"><summary>核对两版 Prompt 与共同条件</summary><p>旧版行为与语音文本取自历史版本 42a366e；当前的输出格式、记忆解释、感知解释、风险与审校规则两侧共用。工具关闭，模型请求参数一致。</p><div class="pc-prompt-grid"><section v-for="variant in variants" :key="variant.id"><h3>{{ variant.label }}</h3><pre>{{ variant.behavior }}{{ variant.voice }}</pre><small>版本指纹：{{ variant.sha256 }}</small></section></div><dl class="pc-conditions"><template v-for="(value, key) in conditions?.parameters" :key="key"><dt>{{ key }}</dt><dd>{{ value }}</dd></template><dt>共同协议指纹</dt><dd>{{ conditions?.common_protocol_hash }}</dd><dt>近期历史窗口</dt><dd>{{ conditions?.history_limit }} 条消息</dd></dl></details>
+        <details class="pc-specification"><summary>核对两版 Prompt 与共同条件</summary><p>旧版行为与语音文本取自历史版本 42a366e；当前的输出格式、记忆解释、感知解释、风险与程序校验规则两侧共用。工具关闭，模型请求参数一致。</p><div class="pc-prompt-grid"><section v-for="variant in variants" :key="variant.id"><h3>{{ variant.label }}</h3><pre>{{ variant.behavior }}{{ variant.voice }}</pre><small>版本指纹：{{ variant.sha256 }}</small></section></div><dl class="pc-conditions"><template v-for="(value, key) in conditions?.parameters" :key="key"><dt>{{ key }}</dt><dd>{{ value }}</dd></template><dt>共同协议指纹</dt><dd>{{ conditions?.common_protocol_hash }}</dd><dt>近期历史窗口</dt><dd>{{ conditions?.history_limit }} 条消息</dd></dl></details>
       </section>
 
       <p v-if="error || run?.error" class="pc-error" role="alert">{{ error || run?.error }}</p>
@@ -60,7 +60,7 @@ const fraction = (n: number, total: number) => total ? `${n} / ${total}` : '—'
       <div v-if="run" class="pc-run-heading"><div><h2>{{ run.scenario.title }}</h2><p>{{ statusNames[run.status] || run.status }} · {{ completed }} / {{ total }} 份回答 · {{ run.repeats }} 次重复</p></div><small v-if="running">离开页面会停止当前对照</small><small v-else>{{ manualDone }} 项人工评阅已记录</small></div>
 
       <div v-if="run" class="pc-score-grid" aria-label="对照汇总">
-        <section v-for="variant in variantIDs" :key="variant" class="pc-score" :class="variant"><h3>{{ variantNames[variant] }}</h3><div class="pc-score-values"><div><strong>{{ fraction(stats[variant].candidatePass, stats[variant].candidateTotal) }}</strong><small>生成时 · 自动检查通过项</small></div><div><strong>{{ fraction(stats[variant].finalPass, stats[variant].finalTotal) }}</strong><small>审校后 · 自动项（非质量评分）</small></div><div><strong>{{ stats[variant].revisions }} 次</strong><small>审校改写 · 含有界纠错</small></div><div><strong>{{ formatMS(stats[variant].firstMS) }}</strong><small>首段文字等待 · 中位数</small></div></div><p class="pc-check-groups"><template v-for="(group, scope) in stats[variant].groups" :key="scope"><span v-if="group.total">{{ scopeNames[scope] }} {{ fraction(group.pass, group.total) }} · </span></template></p><p>{{ stats[variant].completed }} 轮完成 · {{ stats[variant].errors }} 轮未完成 · {{ stats[variant].fallbacks }} 轮回退 · {{ stats[variant].manual }} 项需人工评阅</p></section>
+        <section v-for="variant in variantIDs" :key="variant" class="pc-score" :class="variant"><h3>{{ variantNames[variant] }}</h3><div class="pc-score-values"><div><strong>{{ fraction(stats[variant].candidatePass, stats[variant].candidateTotal) }}</strong><small>生成时 · 自动检查通过项</small></div><div><strong>{{ fraction(stats[variant].finalPass, stats[variant].finalTotal) }}</strong><small>实际输出 · 自动项（非质量评分）</small></div><div><strong>{{ stats[variant].requests }} 次</strong><small>生成请求 · 不含共用风险</small></div><div><strong>{{ formatMS(stats[variant].firstMS) }}</strong><small>首段文字等待 · 中位数</small></div></div><p class="pc-check-groups"><template v-for="(group, scope) in stats[variant].groups" :key="scope"><span v-if="group.total">{{ scopeNames[scope] }} {{ fraction(group.pass, group.total) }} · </span></template></p><p>{{ stats[variant].completed }} 轮完成 · {{ stats[variant].errors }} 轮未完成 · {{ stats[variant].fallbacks }} 轮回退 · {{ stats[variant].manual }} 项需人工评阅</p></section>
       </div>
 
       <section v-for="round in run?.rounds" :key="round.index" class="pc-round" :aria-label="`第 ${round.turn} 轮对照`">
@@ -70,17 +70,17 @@ const fraction = (n: number, total: number) => total ? `${n} / ${total}` : '—'
         <div class="pc-answer-grid">
           <article v-for="variant in variantIDs" :key="variant" class="pc-answer" :class="variant" :aria-label="`${variantNames[variant]}第 ${round.turn} 轮`">
             <header><h3>{{ variantNames[variant] }}</h3><span class="pc-leg-state" :class="round[variant].status">{{ statusNames[round[variant].status] || round[variant].status }}</span></header>
-            <p class="pc-answer-text" :class="{ empty: !round[variant].text }" aria-live="polite">{{ round[variant].text || (round[variant].status === 'running' ? '正在生成并检查…' : '本轮没有完整回答') }}<span v-if="round[variant].status === 'running' && round[variant].text" class="pc-cursor" /></p>
+            <p class="pc-answer-text" :class="{ empty: !round[variant].text }" aria-live="polite">{{ round[variant].text || (round[variant].status === 'running' ? '正在生成…' : '本轮没有完整回答') }}<span v-if="round[variant].status === 'running' && round[variant].text" class="pc-cursor" /></p>
             <p v-if="round[variant].error || round[variant].fallback" class="pc-error">{{ round[variant].error || '本轮使用了回退回应，保留记录。' }}</p>
-            <dl class="pc-leg-metrics"><div><dt>首段文字</dt><dd>{{ formatMS(round[variant].first_text_ms) }}</dd></div><div><dt>完整回答</dt><dd>{{ formatMS(round[variant].completion_ms) }}</dd></div><div><dt>审校改写</dt><dd>{{ round[variant].revisions }} 次</dd></div><div><dt>额外纠错</dt><dd>{{ round[variant].repair_requests }} 次</dd></div></dl>
-            <details v-if="round[variant].candidate && round[variant].status !== 'running'" class="pc-candidate"><summary>查看审校前的回答</summary><p>{{ round[variant].candidate }}</p></details>
-            <table class="pc-check-table"><caption>逐项验收</caption><thead><tr><th>检查项</th><th>生成时</th><th>审校后</th></tr></thead><tbody><tr v-for="check in checks(round, variant)" :key="check.id"><th scope="row">{{ check.label }}<small>{{ scopeNames[checkScope(check)] }}</small></th><td data-check-stage="candidate"><ComparisonCheckCell :check="candidate(round[variant], check.id)" :review="reviews[reviewKey(round.index, variant, 'candidate', check.id)]" @review="review(reviewKey(round.index, variant, 'candidate', check.id), $event)" /></td><td data-check-stage="final"><ComparisonCheckCell :check="check" :review="reviews[reviewKey(round.index, variant, 'final', check.id)]" @review="review(reviewKey(round.index, variant, 'final', check.id), $event)" /></td></tr></tbody></table>
-            <details class="pc-trace"><summary>查看调用与耗时记录 · {{ round[variant].requests }} 次独立请求</summary><ul><li v-for="(phase, n) in round[variant].phases" :key="n"><span>{{ phase.name }}</span><b>{{ formatMS(phase.elapsed_ms) }} · {{ phase.ok ? '完成' : '未通过' }}</b></li></ul><small>共同风险请求单独记在本轮历史中；改写次数按审校返回 revise 计数，额外纠错是其中的请求子集。</small></details>
+            <dl class="pc-leg-metrics"><div><dt>首段文字</dt><dd>{{ formatMS(round[variant].first_text_ms) }}</dd></div><div><dt>完整回答</dt><dd>{{ formatMS(round[variant].completion_ms) }}</dd></div><div><dt>生成请求</dt><dd>{{ round[variant].requests }} 次</dd></div><div><dt>模型审校</dt><dd>已移除</dd></div></dl>
+            <details v-if="round[variant].candidate && round[variant].status !== 'running'" class="pc-candidate"><summary>查看原始生成正文</summary><p>{{ round[variant].candidate }}</p></details>
+            <table class="pc-check-table"><caption>逐项验收</caption><thead><tr><th>检查项</th><th>生成时</th><th>实际输出</th></tr></thead><tbody><tr v-for="check in checks(round, variant)" :key="check.id"><th scope="row">{{ check.label }}<small>{{ scopeNames[checkScope(check)] }}</small></th><td data-check-stage="candidate"><ComparisonCheckCell :check="candidate(round[variant], check.id)" :review="reviews[reviewKey(round.index, variant, 'candidate', check.id)]" @review="review(reviewKey(round.index, variant, 'candidate', check.id), $event)" /></td><td data-check-stage="final"><ComparisonCheckCell :check="check" :review="reviews[reviewKey(round.index, variant, 'final', check.id)]" @review="review(reviewKey(round.index, variant, 'final', check.id), $event)" /></td></tr></tbody></table>
+            <details class="pc-trace"><summary>查看调用与耗时记录 · {{ round[variant].requests }} 次独立请求</summary><ul><li v-for="(phase, n) in round[variant].phases" :key="n"><span>{{ phase.name }}</span><b>{{ formatMS(phase.elapsed_ms) }} · {{ phase.ok ? '完成' : '未通过' }}</b></li></ul><small>共同风险请求单独记录；正文不经过第二次模型检查、改写或重试，格式限制由程序校验。</small></details>
           </article>
         </div>
       </section>
 
-      <section v-if="!run" class="pc-empty"><div aria-hidden="true">A <span>↔</span> B</div><h2>让差异落在实际回答上</h2><p>选择一组情境开始。两版并行回答，逐轮核对要求、查看被修改的内容和等待时间。</p></section>
+      <section v-if="!run" class="pc-empty"><div aria-hidden="true">A <span>↔</span> B</div><h2>让差异落在实际回答上</h2><p>选择一组情境开始。两版并行回答，逐轮核对要求、查看实际输出和等待时间。</p></section>
       <footer class="pc-footnote">自动检查只覆盖明确可计算的规则；“通过”不代表共情或帮助程度已得到证明。语义项请独立评阅，所有失败与回退均保留。延迟仅为文字等待，不包含语音起播；不对应 75% 干预有效率。</footer>
     </main>
   </div>

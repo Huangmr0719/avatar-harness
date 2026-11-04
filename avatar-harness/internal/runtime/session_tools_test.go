@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"avatarharness/internal/config"
-	"avatarharness/internal/intervention"
 	"avatarharness/internal/provider"
 	"avatarharness/internal/store"
 )
@@ -111,7 +110,7 @@ func TestSessionToolsNativeLoopAndAbandonedAnswers(t *testing.T) {
 	}
 }
 
-func TestSupportToolKeepsReviewVersionAndRequiresAdmission(t *testing.T) {
+func TestSupportToolRequiresSuccessfulGenerationBeforeVideoRequest(t *testing.T) {
 	for _, fail := range []bool{false, true} {
 		t.Run(fmt.Sprint(fail), func(t *testing.T) {
 			r, sid := supportFixture(t, func(ctx context.Context, req provider.Request, emit provider.Emit) (provider.Result, error) {
@@ -122,13 +121,11 @@ func TestSupportToolKeepsReviewVersionAndRequiresAdmission(t *testing.T) {
 					if len(req.Input["tools"].([]map[string]any)) > 0 {
 						return provider.OK(map[string]any{"tool_calls": []any{map[string]any{"id": "video", "type": "function", "function": map[string]any{"name": "start_mindfulness", "arguments": "{}"}}}}), nil
 					}
-					return content(composeFixture(intervention.Plan{}, "我会播放练习，你可以随时停止。"))
-				case "support.guard", "support.repair":
 					if fail {
-						return provider.Result{}, fmt.Errorf("review unavailable")
+						return provider.Result{}, fmt.Errorf("generation unavailable")
 					}
-					// A video duration is not a conversational action's integer minutes.
-					return content(`{"plan":{"intent":"suggest","facts":[],"action":{"text":"播放练习","minutes":4.4}},"decision":"approve","emotion":"neutral","intensity":0.1,"speech":"<speak/>我会播放练习，你可以随时停止。"}`)
+					// Optional bad annotations do not turn video seconds into a life action.
+					return content(`{"emotion":"neutral","intensity":0.1,"speech":"<speak/>我会播放练习，你可以随时停止。","support":{"intent":"suggest","facts":[],"action":{"text":"播放练习","minutes":4.4}}}`)
 				}
 				return provider.Result{}, fmt.Errorf("unexpected phase")
 			}, true)
@@ -144,7 +141,7 @@ func TestSupportToolKeepsReviewVersionAndRequiresAdmission(t *testing.T) {
 				}
 			}
 			if requested == fail {
-				t.Fatalf("failed review=%v, video requested=%v", fail, requested)
+				t.Fatalf("failed generation=%v, video requested=%v", fail, requested)
 			}
 		})
 	}

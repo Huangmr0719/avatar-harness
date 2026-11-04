@@ -58,7 +58,7 @@ func (r *Runtime) SupportCommand(sid string, command intervention.Command) (inte
 	if err != nil {
 		return s, err
 	}
-	if command.Operation == "start" || command.Operation == "stop" || command.Operation == "parameters" || command.Operation == "feedback" {
+	if command.Operation == "humanistic" || command.Operation == "start" || command.Operation == "stop" || command.Operation == "parameters" || command.Operation == "feedback" {
 		r.cancelLocked(sid, "支持方式或反馈已更新")
 	}
 	if !r.Store.CommitIntervention(sid, s.Version, next, nil) {
@@ -112,7 +112,7 @@ func (r *Runtime) deliverSupport(t *Turn, s *supportTurn, text string, expressio
 	if !valid {
 		return context.Canceled
 	}
-	r.Emit(t, "intervention.approved", map[string]any{"risk": s.Plan.Risk, "risk_quote": s.Plan.RiskQuote, "intent": s.Plan.Intent, "card_id": intervention.Select(s.Next, s.Plan.Intent).ID})
+	r.Emit(t, "intervention.approved", map[string]any{"risk": s.Plan.Risk, "risk_quote": s.Plan.RiskQuote, "intent": s.Plan.Intent, "card_id": intervention.Select(s.Next, s.Plan.Intent).ID, "source": "risk_and_local_validation", "model_review": false})
 	r.Emit(t, "intervention.state", map[string]any{"state": s.Next})
 	if !s.ExpressionSent {
 		r.Emit(t, "pipeline.expression", map[string]any{"style": expression.Style, "intensity": expression.Intensity, "duration_ms": expression.DurationMS, "source": "llm_structured"})

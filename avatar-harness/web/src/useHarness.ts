@@ -24,6 +24,8 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
   const entries = ref<Entry[]>([]), connected = ref(false), busy = ref(false), playing = ref(false), error = ref('')
   const deletingCharacter = ref(false)
   const support = ref<SupportState>({ version: 0 }), supportPending = ref(false), practicePlaying = ref(false), practiceProgress = ref(0)
+  const humanisticPending = ref(false)
+  const humanisticEnabled = computed(() => support.value.mode === 'humanistic' && !['stopped', 'idle'].includes(support.value.status || ''))
   let supportVideo: HTMLVideoElement | null = null, practiceTimer: ReturnType<typeof setInterval> | undefined, practiceClock: PracticeClock | null = null, practiceID = '', practiceGeneration = 0
   let supportQueue: Promise<unknown> = Promise.resolve()
   const practiceLaunch = new PracticeLaunch()
@@ -101,8 +103,15 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
   async function changeSupport(command: SupportCommand) {
     stopPractice()
     await supportQueue.catch(() => {})
-    if (['start', 'stop', 'parameters', 'feedback'].includes(command.operation)) { cutPlayback(); await stop() }
+    if (['humanistic', 'start', 'stop', 'parameters', 'feedback'].includes(command.operation)) { cutPlayback(); await stop() }
     await supportCommand(command)
+  }
+  async function toggleHumanistic() {
+    if (!selected.value || humanisticPending.value || supportPending.value) return
+    humanisticPending.value = true
+    const enabled = !humanisticEnabled.value
+    try { await changeSupport({ operation: 'humanistic', enabled }) }
+    finally { humanisticPending.value = false }
   }
   watch(() => support.value.execution?.status, status => { if (practicePlaying.value && status !== 'playing') stopPractice(false) })
   const duration = ref<number | null>(null), activeTurn = ref<string | null>(null)
@@ -395,6 +404,12 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
     if (generation !== selectionGeneration) return
     history.forEach(event => handle(event, true)); busy.value = false; activeTurn.value = null
     support.value = newerSupport(support.value, currentSupport)
+    // A fresh browser session starts in ordinary dialogue. Persist this manual
+    // choice so the model cannot silently turn support on during comparisons.
+    if (support.value.version === 0) {
+      await supportCommand({ operation: 'humanistic', enabled: false })
+      if (generation !== selectionGeneration) return
+    }
     stream = new EventSource(`/api/sessions/${session.id}/events?after=${lastSeq}`)
     stream.onopen = () => { connected.value = true; error.value = '' }
     stream.onerror = () => { connected.value = false }
@@ -469,6 +484,8 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
   async function clear() {
     await stop()
     if (selected.value) await api(`/api/sessions/${selected.value.id}/messages`, { method: 'DELETE' })
+    support.value = { version: 0 }
+    await supportCommand({ operation: 'humanistic', enabled: false })
     entries.value = []; duration.value = null
   }
   async function toggleCamera() {
@@ -524,5 +541,5 @@ export function useHarness(options: { diagnostics?: boolean } = {}) {
     catch (exc) { liveVoice.close(); if (generation === micGeneration && (exc as Error).name !== 'AbortError') { micState.value = 'error'; notice(deviceError(exc, '麦克风'), 'error') } }
   }
   onUnmounted(() => { stopPractice(false); if (selected.value) void api(`/api/sessions/${selected.value.id}/stop`, { method: 'POST' }).catch(() => {}); faceAnalysis.stop(); emotionDemo.cancel(); clearInterval(demoFacePoll); clearInterval(facePoll); latencyTracker.cancel(); expressionControl.cancel(); speechBatcher.reset(); liveVoice.close(); stream?.close(); asrAbort?.abort(); audio.stop(); cameraGeneration++; micGeneration++; cameraStream.value?.getTracks().forEach(track => track.stop()); void voice.stop(); timers.forEach(timer => clearTimeout(timer)) })
-  return { deleteCharacter, deletingCharacter, support, supportPending, practicePlaying, practiceProgress, changeSupport, startMindfulness, playPractice, stopPractice, finishPractice, practiceVideoError, bindSupportVideo: (value: HTMLVideoElement | null) => { supportVideo = value }, cameraVideo, analysisState, faceObservation, voiceEmotion, toggleAnalysis, demo, demoActive, toggleEmotionDemo, closeEmotionDemo, facePanelOpen, faceSupported, faceLive, faceOverrides, headSupported, headLive, headOverrides, toggleFacePanel, closeFacePanel, resetFace, setFaceChannel, setHeadAxis, previewBrow, listening, userSpeaking, latency, expressionState, setExpressionMode: (mode: string) => { resetFace(); expressionControl.setMode(mode) }, state, sessions, selected, entries, connected, busy, playing, error, duration, activeTurn, character, moduleStates, renderer, renderState, renderError, cameraStream, cameraState, micState, micLevel, liveTranscript, voiceConnectionState, feedback, mediaHooks, init, select, newSession, send, stop, clear, toggleCamera, toggleMic, resolveAvatar, setRenderer, setRenderStatus, notice }
+  return { humanisticEnabled, humanisticPending, toggleHumanistic, deleteCharacter, deletingCharacter, support, supportPending, practicePlaying, practiceProgress, changeSupport, startMindfulness, playPractice, stopPractice, finishPractice, practiceVideoError, bindSupportVideo: (value: HTMLVideoElement | null) => { supportVideo = value }, cameraVideo, analysisState, faceObservation, voiceEmotion, toggleAnalysis, demo, demoActive, toggleEmotionDemo, closeEmotionDemo, facePanelOpen, faceSupported, faceLive, faceOverrides, headSupported, headLive, headOverrides, toggleFacePanel, closeFacePanel, resetFace, setFaceChannel, setHeadAxis, previewBrow, listening, userSpeaking, latency, expressionState, setExpressionMode: (mode: string) => { resetFace(); expressionControl.setMode(mode) }, state, sessions, selected, entries, connected, busy, playing, error, duration, activeTurn, character, moduleStates, renderer, renderState, renderError, cameraStream, cameraState, micState, micLevel, liveTranscript, voiceConnectionState, feedback, mediaHooks, init, select, newSession, send, stop, clear, toggleCamera, toggleMic, resolveAvatar, setRenderer, setRenderStatus, notice }
 }

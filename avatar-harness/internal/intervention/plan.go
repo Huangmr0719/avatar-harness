@@ -45,7 +45,7 @@ func (p Plan) Validate(text string, s State) error {
 	}
 	for _, f := range p.Facts {
 		switch f.Key {
-		case "situation", "thought", "evidence", "alternative", "constraints", "need":
+		case "situation", "thought", "evidence", "alternative", "constraints", "need", "feeling", "preference":
 		default:
 			return fmt.Errorf("事实字段无效")
 		}

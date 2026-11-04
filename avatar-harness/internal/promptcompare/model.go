@@ -111,6 +111,7 @@ type Conditions struct {
 	HistoryLimit           int            `json:"history_limit"`
 	Tokens                 map[string]int `json:"tokens"`
 	Protocol               string         `json:"protocol"`
+	ReviewMode             string         `json:"review_mode"`
 }
 type Run struct {
 	ID         string     `json:"id"`

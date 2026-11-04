@@ -61,12 +61,17 @@ func awaitTurn(t *testing.T, turn *Turn) {
 	}
 }
 
-func composeFixture(_ intervention.Plan, text string) string {
+func composeFixture(plan intervention.Plan, text string) string {
+	var metadata *intervention.Plan
+	if plan.Intent != "" {
+		metadata = &plan
+	}
 	raw, _ := json.Marshal(struct {
-		Emotion   string  `json:"emotion"`
-		Intensity float64 `json:"intensity"`
-		Speech    string  `json:"speech"`
-	}{"neutral", .1, answerMarker + text})
+		Emotion   string             `json:"emotion"`
+		Intensity float64            `json:"intensity"`
+		Speech    string             `json:"speech"`
+		Support   *intervention.Plan `json:"support,omitempty"`
+	}{"neutral", .1, answerMarker + text, metadata})
 	return string(raw)
 }
 func guardFixture(decision, text string) string {
@@ -125,10 +130,10 @@ func TestSupportRiskAndComposeOverlapWithoutEarlyRelease(t *testing.T) {
 			case <-ctx.Done():
 				return provider.Result{}, ctx.Err()
 			}
-			return content(`{"level":"ordinary","quote":""}`)
+			return streamFixture(emit, `{"level":"ordinary","quote":""}`, nil)
 		case "support.compose":
 			close(composeEntered)
-			return content(composeFixture(intervention.Plan{Intent: "listen"}, answer))
+			return streamFixture(emit, composeFixture(intervention.Plan{Intent: "listen"}, answer), nil)
 		case "support.guard":
 			guarded.Add(1)
 			return content(guardFixture("approve", answer))
@@ -136,6 +141,9 @@ func TestSupportRiskAndComposeOverlapWithoutEarlyRelease(t *testing.T) {
 			return provider.Result{}, fmt.Errorf("unexpected phase %v", req.Context["phase"])
 		}
 	})
+	p := r.Config.Providers["llm"]
+	p.Streaming = true
+	r.Config.Providers["llm"] = p
 	turn, _ := r.Start(sid, "我先想讲讲今天的经历。", "text", false, nil)
 	waitSignal(t, riskEntered, turn, "risk")
 	waitSignal(t, composeEntered, turn, "compose")
@@ -154,64 +162,10 @@ func TestSupportRiskAndComposeOverlapWithoutEarlyRelease(t *testing.T) {
 	}
 }
 
-func TestSupportApprovedSpeechStreamsBeforeGuardFinishes(t *testing.T) {
-	first := "你希望把今天的具体经历讲清楚，我会按你愿意的节奏听。"
-	tail := "接下来的部分也由你决定。"
-	answer := first + tail
-	guardStarted, finish, spoken := make(chan struct{}), make(chan struct{}), make(chan struct{})
+func TestSupportSpeechStreamsBeforeGenerationAndMetadataFinish(t *testing.T) {
+	first, tail := "我在听。", "接下来的部分也由你决定。"
+	started, finish, spoken := make(chan struct{}), make(chan struct{}), make(chan struct{})
 	var once sync.Once
-	r, sid := supportFixture(t, func(ctx context.Context, req provider.Request, emit provider.Emit) (provider.Result, error) {
-		switch req.Context["phase"] {
-		case "support.risk":
-			return streamFixture(emit, `{"level":"ordinary","quote":""}`, nil)
-		case "support.compose":
-			return streamFixture(emit, composeFixture(intervention.Plan{Intent: "listen"}, answer), nil)
-		case "support.guard":
-			if err := emit(map[string]any{"type": "text", "text": `{"plan":{"intent":"answer"},"decision":"approve","emotion":"neutral","intensity":0.1,"speech":"<speak/>` + first}); err != nil {
-				return provider.Result{}, err
-			}
-			close(guardStarted)
-			select {
-			case <-finish:
-			case <-ctx.Done():
-				return provider.Result{}, ctx.Err()
-			}
-			return streamFixture(emit, tail+`"}`, nil)
-		}
-		return provider.Result{}, fmt.Errorf("unexpected phase")
-	})
-	p := r.Config.Providers["llm"]
-	p.Streaming = true
-	r.Config.Providers["llm"] = p
-	r.Config.Providers["tts"] = config.Provider{Kind: "internal", Factory: "stream-speech-spy", TimeoutMS: 1000}
-	r.Bus.Register("stream-speech-spy", func(ctx context.Context, req provider.Request, emit provider.Emit) (provider.Result, error) {
-		once.Do(func() { close(spoken) })
-		return provider.OK(nil), nil
-	})
-	turn, _ := r.Start(sid, "先听我说。", "text", true, nil)
-	waitSignal(t, guardStarted, turn, "first approved sentence")
-	waitSignal(t, spoken, turn, "TTS before guard completion")
-	if len(r.Store.History(sid, 20)) != 0 {
-		t.Fatal("unfinished answer committed")
-	}
-	delta := ""
-	for _, e := range r.Store.Events(sid, 0) {
-		if e.Type == "assistant.delta" {
-			delta += provider.String(e.Data["text"])
-		}
-	}
-	if delta != first {
-		t.Fatal("wrong streamed prefix", delta)
-	}
-	close(finish)
-	awaitTurn(t, turn)
-	if finalSupportText(r, sid) != answer || len(r.Store.History(sid, 20)) != 2 {
-		t.Fatal("stream not committed exactly once", r.Store.Events(sid, 0))
-	}
-}
-
-func TestSupportRevisionUsesOneGuardAndHoldsReplacementUntilComplete(t *testing.T) {
-	entered, finish := make(chan struct{}), make(chan struct{})
 	var calls atomic.Int32
 	r, sid := supportFixture(t, func(ctx context.Context, req provider.Request, emit provider.Emit) (provider.Result, error) {
 		calls.Add(1)
@@ -219,41 +173,66 @@ func TestSupportRevisionUsesOneGuardAndHoldsReplacementUntilComplete(t *testing.
 		case "support.risk":
 			return streamFixture(emit, `{"level":"ordinary","quote":""}`, nil)
 		case "support.compose":
-			return streamFixture(emit, composeFixture(intervention.Plan{Intent: "answer"}, "因为准备不足才会失败。"), nil)
-		case "support.guard":
-			if err := emit(map[string]any{"type": "text", "text": `{"plan":{"intent":"answer"},"decision":"revise","emotion":"neutral","intensity":0.1,"speech":"<speak/>答案是`}); err != nil {
+			if err := emit(map[string]any{"type": "text", "text": `{"emotion":"neutral","intensity":0.1,"speech":"<speak/>` + first}); err != nil {
 				return provider.Result{}, err
 			}
-			close(entered)
+			close(started)
 			select {
 			case <-finish:
 			case <-ctx.Done():
 				return provider.Result{}, ctx.Err()
 			}
-			return streamFixture(emit, `十二。"}`, nil)
+			return streamFixture(emit, tail+`","support":{"intent":"listen","facts":[{"key":"need","quote":"先听我说"}]}}`, nil)
+		default:
+			return provider.Result{}, fmt.Errorf("unexpected serial request: %v", req.Context["phase"])
 		}
-		return provider.Result{}, fmt.Errorf("extra model call")
 	})
 	p := r.Config.Providers["llm"]
 	p.Streaming = true
 	r.Config.Providers["llm"] = p
-	turn, _ := r.Start(sid, "直接回答三乘四。", "text", false, nil)
-	waitSignal(t, entered, turn, "revision")
-	for _, e := range r.Store.Events(sid, 0) {
-		if e.Type == "assistant.delta" || e.Type == "pipeline.expression" {
-			t.Fatal("unvalidated replacement escaped", e)
-		}
+	r.Config.Providers["tts"] = config.Provider{Kind: "internal", Factory: "stream-speech-spy", TimeoutMS: 1000}
+	r.Bus.Register("stream-speech-spy", func(context.Context, provider.Request, provider.Emit) (provider.Result, error) {
+		once.Do(func() { close(spoken) })
+		return provider.OK(nil), nil
+	})
+	turn, _ := r.Start(sid, "先听我说。", "text", true, nil)
+	waitSignal(t, started, turn, "first sentence")
+	waitSignal(t, spoken, turn, "TTS during generation")
+	if len(r.Store.History(sid, 20)) != 0 {
+		t.Fatal("unfinished state committed")
 	}
 	close(finish)
 	awaitTurn(t, turn)
-	if finalSupportText(r, sid) != "答案是十二。" || calls.Load() != 3 {
-		t.Fatal("revision added a serial loop", calls.Load(), r.Store.Events(sid, 0))
-	}
-	if strings.Contains(provider.String(r.Store.History(sid, 20)[1]["content"]), "准备不足") {
-		t.Fatal("rejected inference entered history")
+	if finalSupportText(r, sid) != first+tail || calls.Load() != 2 || len(r.Store.History(sid, 20)) != 2 || r.Store.Intervention(sid).Facts["need"].Quote != "先听我说" {
+		t.Fatal("stream or same-call metadata missing", r.Store.Events(sid, 0))
 	}
 }
-
+func TestSupportDoesNotReviewOrRewriteOriginalAnswer(t *testing.T) {
+	answer := "你说现在很累，也暂时不想找办法。"
+	var calls atomic.Int32
+	r, sid := supportFixture(t, func(ctx context.Context, req provider.Request, emit provider.Emit) (provider.Result, error) {
+		calls.Add(1)
+		switch req.Context["phase"] {
+		case "support.risk":
+			return content(`{"level":"ordinary","quote":""}`)
+		case "support.compose":
+			return content(composeFixture(intervention.Plan{Intent: "listen"}, answer))
+		default:
+			t.Errorf("review or rewrite request: %v", req.Context["phase"])
+			return provider.Result{}, fmt.Errorf("unexpected request")
+		}
+	})
+	turn, _ := r.Start(sid, "我很累，先只听。", "text", false, nil)
+	awaitTurn(t, turn)
+	if calls.Load() != 2 || finalSupportText(r, sid) != answer {
+		t.Fatal(calls.Load(), r.Store.Events(sid, 0))
+	}
+	for _, e := range r.Store.Events(sid, 0) {
+		if e.Type == "intervention.guard" || e.Type == "intervention.constraint_repair" {
+			t.Fatal("review event emitted", e)
+		}
+	}
+}
 func TestSupportUrgentRiskCancelsSpeculativeAnswer(t *testing.T) {
 	started, cancelled := make(chan struct{}), make(chan struct{})
 	r, sid := supportFixture(t, func(ctx context.Context, req provider.Request, emit provider.Emit) (provider.Result, error) {
@@ -405,49 +384,41 @@ func TestSupportToolDecisionWaitsForRiskAndNeverLeaksPrelude(t *testing.T) {
 	}
 }
 
-func TestSupportBoundedGuardFailureAndPartialHistory(t *testing.T) {
+func TestSupportGenerationFailurePreservesOnlyStreamedPrefix(t *testing.T) {
 	for _, partial := range []bool{false, true} {
 		t.Run(fmt.Sprint(partial), func(t *testing.T) {
-			first := "你希望先说说今天的经历，我会按你的节奏听。"
-			answer := first + "后续也由你决定。"
-			var guards atomic.Int32
+			first := "这一句已经发送。"
+			var calls atomic.Int32
 			r, sid := supportFixture(t, func(ctx context.Context, req provider.Request, emit provider.Emit) (provider.Result, error) {
-				switch req.Context["phase"] {
-				case "support.risk":
+				calls.Add(1)
+				if req.Context["phase"] == "support.risk" {
 					return streamFixture(emit, `{"level":"ordinary","quote":""}`, nil)
-				case "support.compose":
-					return streamFixture(emit, composeFixture(intervention.Plan{Intent: "listen"}, answer), nil)
-				case "support.guard":
-					guards.Add(1)
-					if partial {
-						if err := emit(map[string]any{"type": "text", "text": `{"plan":{"intent":"answer"},"decision":"approve","emotion":"neutral","intensity":0.1,"speech":"<speak/>` + first}); err != nil {
-							return provider.Result{}, err
-						}
-						return provider.Result{}, errors.New("interrupted stream")
-					}
-					return streamFixture(emit, `{"plan":{"intent":"answer"},"decision":"block","speech":""}`, nil)
 				}
-				return provider.Result{}, fmt.Errorf("unexpected call")
+				if partial {
+					if err := emit(map[string]any{"type": "text", "text": `{"emotion":"neutral","intensity":0.1,"speech":"<speak/>` + first}); err != nil {
+						return provider.Result{}, err
+					}
+				}
+				return provider.Result{}, errors.New("interrupted generation")
 			})
 			p := r.Config.Providers["llm"]
 			p.Streaming = true
 			r.Config.Providers["llm"] = p
 			turn, _ := r.Start(sid, "先听我说。", "text", false, nil)
 			awaitTurn(t, turn)
-			if guards.Load() != 1 {
-				t.Fatal("guard retried")
+			if calls.Load() != 2 {
+				t.Fatal("failure retried", calls.Load())
 			}
 			if partial {
 				if finalSupportText(r, sid) != first || r.Store.Intervention(sid).Execution.Status != "partial" {
 					t.Fatal(r.Store.Events(sid, 0))
 				}
-			} else if !strings.Contains(finalSupportText(r, sid), "未通过内容检查") {
-				t.Fatal("blocked candidate released")
+			} else if !strings.Contains(finalSupportText(r, sid), "暂未完成") {
+				t.Fatal(r.Store.Events(sid, 0))
 			}
 		})
 	}
 }
-
 func TestSupportEveryPhaseMeetsHTTPJSONContract(t *testing.T) {
 	answer := "我在听。"
 	var calls atomic.Int32
@@ -483,7 +454,7 @@ func TestSupportEveryPhaseMeetsHTTPJSONContract(t *testing.T) {
 	r.Config.Providers["llm"] = config.Provider{Kind: "openai", BaseURL: remote.URL, Model: "contract-fixture", TimeoutMS: 1000}
 	turn, _ := r.Start(sid, "我先想说说。", "text", false, nil)
 	awaitTurn(t, turn)
-	if calls.Load() != 3 || finalSupportText(r, sid) != answer {
+	if calls.Load() != 2 || finalSupportText(r, sid) != answer {
 		t.Fatal(calls.Load(), r.Store.Events(sid, 0))
 	}
 }
@@ -589,87 +560,78 @@ func TestSupportKeepsArchivedMemoryAndLatestUserMessage(t *testing.T) {
 	}
 }
 
-func TestSupportRejectsUncommittedAndDivergentApprovedSpeech(t *testing.T) {
-	for _, kind := range []string{"no_commit", "divergent", "bad_budget"} {
+func TestSupportRejectsUncommittedAndOverBudgetNonStreamingOutput(t *testing.T) {
+	for _, kind := range []string{"no_commit", "bad_budget"} {
 		t.Run(kind, func(t *testing.T) {
-			candidate := "当前候选是有依据的简短回答。"
-			plan := intervention.Plan{Intent: "answer"}
+			raw := `{"emotion":"neutral","intensity":0.1,"speech":"正文没有提交标记。"}`
 			if kind == "bad_budget" {
-				candidate = strings.Repeat("很长的正文。", 60)
+				raw = composeFixture(intervention.Plan{}, strings.Repeat("很长的正文。", 60))
 			}
 			r, sid := supportFixture(t, func(ctx context.Context, req provider.Request, emit provider.Emit) (provider.Result, error) {
-				switch req.Context["phase"] {
-				case "support.risk":
+				if req.Context["phase"] == "support.risk" {
 					return content(`{"level":"ordinary","quote":""}`)
-				case "support.compose":
-					return content(composeFixture(plan, candidate))
-				case "support.guard":
-					if kind == "no_commit" {
-						return content(`{"plan":{"intent":"answer"},"decision":"approve","emotion":"neutral","intensity":0.1,"speech":"当前候选是有依据的简短回答。"}`)
-					}
-					if kind == "divergent" {
-						return content(guardFixture("approve", "我断定了一个新的原因。"))
-					}
-					return content(guardFixture("approve", candidate))
 				}
-				return provider.Result{}, fmt.Errorf("unexpected phase")
+				return content(raw)
 			})
 			turn, _ := r.Start(sid, "请直接回答。", "text", false, nil)
 			awaitTurn(t, turn)
 			for _, e := range r.Store.Events(sid, 0) {
 				if e.Type == "assistant.delta" {
-					t.Fatal("invalid approved stream escaped", e)
+					t.Fatal("invalid output released", e)
 				}
 			}
-			if !strings.Contains(finalSupportText(r, sid), "未通过内容检查") {
-				t.Fatal("invalid stream was presented as success")
+			if !strings.Contains(finalSupportText(r, sid), "暂未完成") {
+				t.Fatal(r.Store.Events(sid, 0))
 			}
 		})
 	}
 }
-
-func TestSupportInterruptedApprovedPrefixRemainsInConversation(t *testing.T) {
-	first := "你希望先把今天的经历说清楚，我会按你的节奏听。"
-	tail := "后面的部分先不说。"
+func TestSupportInterruptedPrefixRemainsInConversation(t *testing.T) {
+	first, tail := "这一句已发送。", "未发送的旧轮尾部。"
 	ready, finish := make(chan struct{}), make(chan struct{})
 	r, sid := supportFixture(t, func(ctx context.Context, req provider.Request, emit provider.Emit) (provider.Result, error) {
-		switch req.Context["phase"] {
-		case "support.risk":
+		if req.Context["phase"] == "support.risk" {
 			return streamFixture(emit, `{"level":"ordinary","quote":""}`, nil)
-		case "support.compose":
-			return streamFixture(emit, composeFixture(intervention.Plan{}, first+tail), nil)
-		case "support.guard":
-			if err := emit(map[string]any{"type": "text", "text": `{"plan":{"intent":"listen"},"decision":"approve","emotion":"neutral","intensity":0.1,"speech":"<speak/>` + first}); err != nil {
-				return provider.Result{}, err
-			}
-			close(ready)
-			select {
-			case <-finish:
-			case <-ctx.Done():
-				return provider.Result{}, ctx.Err()
-			}
-			return streamFixture(emit, tail+`"}`, nil)
 		}
-		return provider.Result{}, fmt.Errorf("unexpected phase")
+		if err := emit(map[string]any{"type": "text", "text": `{"emotion":"neutral","intensity":0.1,"speech":"<speak/>` + first}); err != nil {
+			return provider.Result{}, err
+		}
+		close(ready)
+		select {
+		case <-finish:
+		case <-ctx.Done():
+			return provider.Result{}, ctx.Err()
+		}
+		return streamFixture(emit, tail+`"}`, nil)
 	})
 	p := r.Config.Providers["llm"]
 	p.Streaming = true
 	r.Config.Providers["llm"] = p
-	turn, _ := r.Start(sid, "我先想说说。", "text", false, nil)
-	waitSignal(t, ready, turn, "approved prefix")
+	turn, _ := r.Start(sid, "先听我说。", "text", false, nil)
+	waitSignal(t, ready, turn, "generation prefix")
+	// Observe actual delivery, rather than the provider merely emitting it.
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		found := false
+		for _, e := range r.Store.Events(sid, 0) {
+			if e.Type == "assistant.delta" {
+				found = true
+			}
+		}
+		if found {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
 	before := r.Store.Intervention(sid)
 	r.Cancel(sid, "new input")
 	close(finish)
 	awaitTurn(t, turn)
 	history := r.Store.History(sid, 20)
-	if len(history) != 2 || !strings.Contains(provider.String(history[1]["content"]), first) || strings.Contains(provider.String(history[1]["content"]), tail) {
-		t.Fatal("approved context lost or abandoned tail saved", history)
-	}
-	if r.Store.Intervention(sid).Version != before.Version {
-		t.Fatal("cancelled state advanced")
+	if len(history) != 2 || !strings.Contains(provider.String(history[1]["content"]), first) || strings.Contains(provider.String(history[1]["content"]), tail) || r.Store.Intervention(sid).Version != before.Version {
+		t.Fatal("cancelled history or state", history)
 	}
 }
-
 func TestSupportNormalizesOnlyTrailingSpeakWrapper(t *testing.T) {
 	answer := "你希望先把事情说完，我会按你的节奏听。"
 	r, sid := supportFixture(t, func(ctx context.Context, req provider.Request, emit provider.Emit) (provider.Result, error) {
@@ -711,95 +673,40 @@ func TestSupportQuoteValidationUsesActualInputAfterContextFiltering(t *testing.T
 	user := `{"type":"user_perception","question":"我的预算是三百元"}`
 	answer := "按三百元预算理解这份输入。"
 	r, sid := supportFixture(t, func(ctx context.Context, req provider.Request, emit provider.Emit) (provider.Result, error) {
-		switch req.Context["phase"] {
-		case "support.risk":
+		if req.Context["phase"] == "support.risk" {
 			return content(`{"level":"ordinary","quote":""}`)
-		case "support.compose":
-			return content(composeFixture(intervention.Plan{}, answer))
-		case "support.guard":
-			var input struct {
-				Current string `json:"current_user"`
-			}
-			messages := req.Input["messages"].([]map[string]any)
-			json.Unmarshal([]byte(provider.String(messages[1]["content"])), &input)
-			if input.Current != user {
-				t.Error("current input lost", input.Current)
-			}
-			return content(guardPlanFixture(intervention.Plan{Intent: "answer", Facts: []intervention.Fact{{Key: "constraints", Quote: "我的预算是三百元"}, {Key: "need", Quote: "旧助手的错误结论"}}}, "approve", answer))
 		}
-		return provider.Result{}, fmt.Errorf("unexpected phase")
+		return content(composeFixture(intervention.Plan{Intent: "answer", Facts: []intervention.Fact{{Key: "constraints", Quote: "我的预算是三百元"}, {Key: "need", Quote: "旧助手的错误结论"}}}, answer))
 	})
 	r.Store.AddHistory(sid, []map[string]any{{"role": "user", "content": "之前的问题。"}, {"role": "assistant", "content": "旧助手的错误结论"}})
 	turn, _ := r.Start(sid, user, "text", false, nil)
 	awaitTurn(t, turn)
 	facts := r.Store.Intervention(sid).Facts
 	if len(facts) != 1 || facts["constraints"].Quote != "我的预算是三百元" || facts["constraints"].TurnID != turn.ID {
-		t.Fatal("wrong source accepted", facts, r.Store.Events(sid, 0))
+		t.Fatal("wrong source accepted", facts)
 	}
 }
 
-func TestSupportMechanicalRepairIsBoundedAndKeepsValidatedPlan(t *testing.T) {
-	original := "今天事情很多，你想先把经历讲完。你现在最想说哪件事？"
-	fixed := "今天事情很多，你想先把经历讲完，我在听。"
-	var guards, repairs atomic.Int32
+func TestSupportLocalConstraintFailureNeverCallsARepairModel(t *testing.T) {
+	var calls atomic.Int32
 	r, sid := supportFixture(t, func(ctx context.Context, req provider.Request, emit provider.Emit) (provider.Result, error) {
-		switch req.Context["phase"] {
-		case "support.risk":
+		calls.Add(1)
+		if req.Context["phase"] == "support.risk" {
 			return content(`{"level":"ordinary","quote":""}`)
-		case "support.compose":
-			return content(composeFixture(intervention.Plan{}, original))
-		case "support.guard":
-			guards.Add(1)
-			return content(guardPlanFixture(intervention.Plan{Intent: "listen", Facts: []intervention.Fact{{Key: "need", Quote: "先听我说"}}}, "approve", original))
-		case "support.repair":
-			repairs.Add(1)
-			var input map[string]any
-			messages := req.Input["messages"].([]map[string]any)
-			json.Unmarshal([]byte(provider.String(messages[1]["content"])), &input)
-			if provider.Number(input["hard_limits"].(map[string]any)["question_limit"]) != 0 {
-				t.Error("repair lost question limit")
-			}
-			return content(guardPlanFixture(intervention.Plan{Intent: "explore", Facts: []intervention.Fact{{Key: "need", Quote: "编造的来源"}}}, "revise", fixed))
 		}
-		return provider.Result{}, fmt.Errorf("extra call")
-	})
-	turn, _ := r.Start(sid, "今天事情很多，先听我说。", "text", false, nil)
-	awaitTurn(t, turn)
-	if finalSupportText(r, sid) != fixed || guards.Load() != 1 || repairs.Load() != 1 {
-		t.Fatal("bounded repair failed", r.Store.Events(sid, 0))
-	}
-	s := r.Store.Intervention(sid)
-	if s.LastDecision.Kind != "listen" || s.Facts["need"].Quote != "先听我说" || s.DialogueTurns != 1 {
-		t.Fatal("repair changed validated state", s)
-	}
-}
-
-func TestSupportMechanicalRepairFailureDoesNotRetryOrRelease(t *testing.T) {
-	invalid := "你想先讲完今天的经历。现在最想说哪件事？"
-	var guards, repairs atomic.Int32
-	r, sid := supportFixture(t, func(ctx context.Context, req provider.Request, emit provider.Emit) (provider.Result, error) {
-		switch req.Context["phase"] {
-		case "support.risk":
-			return content(`{"level":"ordinary","quote":""}`)
-		case "support.compose":
-			return content(composeFixture(intervention.Plan{}, invalid))
-		case "support.guard":
-			guards.Add(1)
-			return content(guardPlanFixture(intervention.Plan{Intent: "listen"}, "approve", invalid))
-		case "support.repair":
-			repairs.Add(1)
-			return content(guardFixture("revise", invalid))
+		if req.Context["phase"] != "support.compose" {
+			t.Errorf("unexpected phase %v", req.Context["phase"])
 		}
-		return provider.Result{}, fmt.Errorf("extra call")
+		return content(composeFixture(intervention.Plan{Intent: "listen"}, "你现在最想说哪件事？"))
 	})
 	turn, _ := r.Start(sid, "先听我说，不要问问题。", "text", false, nil)
 	awaitTurn(t, turn)
-	if guards.Load() != 1 || repairs.Load() != 1 || !strings.Contains(finalSupportText(r, sid), "未通过内容检查") {
-		t.Fatal("repair retried or bypassed constraints", r.Store.Events(sid, 0))
+	if calls.Load() != 2 || !strings.Contains(finalSupportText(r, sid), "暂未完成") {
+		t.Fatal("repair called or constraint bypassed", calls.Load(), r.Store.Events(sid, 0))
 	}
 	for _, e := range r.Store.Events(sid, 0) {
-		if e.Type == "assistant.delta" && strings.Contains(provider.String(e.Data["text"]), "最想说哪件事") {
-			t.Fatal("invalid repair reached speech", e)
+		if e.Type == "assistant.delta" {
+			t.Fatal("invalid question released", e)
 		}
 	}
 }

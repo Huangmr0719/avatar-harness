@@ -75,7 +75,7 @@ func (m *PromptComparisons) Conditions(characterID string) (pc.Conditions, error
 			safe[key] = value
 		}
 	}
-	tokens := map[string]int{"risk": 160, "compose": 1024, "guard_or_repair": 768}
+	tokens := map[string]int{"risk": 160, "compose": 1024}
 	if cap := int(provider.Number(p.Parameters["max_tokens"])); cap > 0 {
 		for key, n := range tokens {
 			tokens[key] = min(cap, n)
@@ -88,7 +88,7 @@ func (m *PromptComparisons) Conditions(characterID string) (pc.Conditions, error
 		}
 		safe["max_tokens"] = tokens["compose"]
 	}
-	return pc.Conditions{Model: p.Model, Parameters: safe, ProviderParametersHash: pc.Digest(p), CharacterID: ch.ID, PersonaHash: pc.Digest(ch.Persona), CommonProtocolHash: comparisonProtocolHash(), HistoryLimit: m.parent.Config.Limits.MaxHistoryMessages, Tokens: tokens, Protocol: "frozen-reference-history/v1; shared-risk; same-memory-retrieval; fixed-signals; tools-off; text-only; per-request-thinking-off"}, nil
+	return pc.Conditions{Model: p.Model, Parameters: safe, ProviderParametersHash: pc.Digest(p), CharacterID: ch.ID, PersonaHash: pc.Digest(ch.Persona), CommonProtocolHash: comparisonProtocolHash(), HistoryLimit: m.parent.Config.Limits.MaxHistoryMessages, Tokens: tokens, ReviewMode: "none", Protocol: "frozen-reference-history/v2; shared-risk; direct-stream; no-model-review; same-memory-retrieval; fixed-signals; tools-off; text-only; per-request-thinking-off"}, nil
 }
 
 func (m *PromptComparisons) Start(req pc.Request) (pc.Run, error) {
@@ -373,13 +373,7 @@ func (m *PromptComparisons) runPair(j *comparisonJob, index int, history []pc.Me
 						complete := l.Status == "completed"
 						l.Checks = pc.Evaluate(step.Checks, l.Text, &state, v.Rounds[index].Risk, complete)
 						if l.Candidate != "" && complete {
-							l.CandidateChecks = pc.Evaluate(step.Checks, l.Candidate, nil, v.Rounds[index].Risk, true)
-							for i := range l.CandidateChecks {
-								if l.CandidateChecks[i].Kind == "action_budget" || l.CandidateChecks[i].Kind == "state_is" {
-									l.CandidateChecks[i].Status = "manual"
-									l.CandidateChecks[i].Detail = "审校前没有结构化状态，需核对候选正文"
-								}
-							}
+							l.CandidateChecks = pc.Evaluate(step.Checks, l.Candidate, &state, v.Rounds[index].Risk, true)
 						}
 					})
 					return

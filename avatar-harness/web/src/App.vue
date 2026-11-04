@@ -151,7 +151,10 @@ onUnmounted(() => { window.removeEventListener('keydown', keydown); if (localURL
             <div class="camera-caption"><i v-if="cameraState === 'on'" class="dot positive" />{{ analysisState === 'on' ? '正在发送到 data2 分析' : analysisState === 'connecting' ? '连接分析服务…' : '仅本地预览' }}</div>
           </div>
           <div class="perception-controls">
+            <div class="perception-actions">
             <button class="outline" :disabled="cameraState !== 'on' || !state?.face_analysis || !selected" :aria-pressed="analysisState === 'on'" @click="run(app.toggleAnalysis)">{{ analysisState === 'on' ? '关闭表情分析' : analysisState === 'connecting' ? '取消连接' : '开启表情分析' }}</button>
+            <button class="outline humanistic-toggle" :class="{ active: app.humanisticEnabled.value }" role="switch" aria-label="人本主义对话" :aria-checked="app.humanisticEnabled.value" :disabled="!selected || supportPending || app.humanisticPending.value" title="切换当前会话的普通对话与人本主义对话" @click="run(app.toggleHumanistic)"><span class="toggle-track" aria-hidden="true"><i /></span>人本主义对话<small>{{ app.humanisticEnabled.value ? '开' : '关' }}</small></button>
+            </div>
             <span v-if="analysisState === 'error'">连接中断，请重试</span>
             <span v-else-if="faceObservation && !faceObservation.face_detected">{{ faceObservation.face_count > 1 ? '请保持一人入镜' : '未检测到人脸' }}</span>
             <span v-else-if="faceObservation?.expression">当前候选 · {{ emotionLabel(faceObservation.expression.label) }} · 得分 {{ Math.round(faceObservation.expression.score * 100) }}%</span>

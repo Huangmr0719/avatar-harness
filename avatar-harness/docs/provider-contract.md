@@ -220,4 +220,4 @@ Go 将 TTS 的真实最终音频送给 `operation: animate`：
 
 ## 单次 LLM 参数与并行支持
 
-`Bus.LLMWithOptions` 提供只作用于本次请求的 `DisableThinking`、`MaxTokens`。仅在 provider 已配置 `enable_thinking` 扩展时关闭该开关并移除本次 `reasoning_effort`；输出上限服从本次和已配置上限中的较小值。不会修改共享配置或影响并行的普通对话。当前支持路径用它并行做风险检查与候选生成，再做一次审校；必要工具仍在独立风险放行后才执行。原有 `LLM` 接口保持默认行为。详见 [提速验收](intervention-speed-20261031.md)。
+`Bus.LLMWithOptions` 提供只作用于本次请求的 `DisableThinking`、`MaxTokens`。仅在 provider 已配置 `enable_thinking` 扩展时关闭该开关并移除本次 `reasoning_effort`；输出上限服从本次和已配置上限中的较小值。不会修改共享配置或影响并行的普通对话。当前支持路径并行做风险检查（最多160 tokens）与回答生成（最多1024 tokens），风险通过后直接输出，不再请求模型审校或改写。来源合法的可选状态增量由同次生成在 speech 后给出。必要工具仍在独立风险放行后才执行。原有 `LLM` 接口保持默认行为。详见 [直接输出协议](support-direct-stream.md)。

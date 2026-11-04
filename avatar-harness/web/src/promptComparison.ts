@@ -18,7 +18,7 @@ export interface ComparisonRound {
 export interface ComparisonVariant { id: VariantID; label: string; behavior: string; voice: string; sha256: string }
 export interface ComparisonConditions {
   model: string; parameters: Record<string, unknown>; provider_parameters_hash: string; character_id: string; persona_hash: string
-  common_protocol_hash: string; history_limit: number; tokens: Record<string, number>; protocol: string
+  common_protocol_hash: string; history_limit: number; tokens: Record<string, number>; protocol: string; review_mode?: 'none'
 }
 export interface ComparisonRun {
   id: string; revision: number; status: string; scenario: ComparisonScenario; repeats: number; conditions: ComparisonConditions

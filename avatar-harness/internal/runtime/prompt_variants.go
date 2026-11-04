@@ -48,5 +48,5 @@ func (r *Runtime) captureComparisonInput(t *Turn, messages []map[string]any) {
 	r.Emit(t, "comparison.input", map[string]any{"conditions_hash": hash})
 }
 func comparisonProtocolHash() string {
-	return promptcompare.Digest([]string{commitPrompt, expressionPrompt, perceptionPrompt, memoryContextPrompt, supportComposePrompt, supportGuardPrompt, supportRiskPrompt, supportConstraintRepairPrompt})
+	return promptcompare.Digest([]string{"risk-gated-direct-stream/v1", commitPrompt, expressionPrompt, perceptionPrompt, memoryContextPrompt, supportComposePrompt, supportRiskPrompt, humanisticDialoguePrompt})
 }

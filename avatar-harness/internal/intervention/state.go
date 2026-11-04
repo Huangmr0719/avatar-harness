@@ -80,26 +80,31 @@ type Decision struct {
 }
 
 type State struct {
-	Version        uint64              `json:"version"`
-	Mode           Mode                `json:"mode"`
-	Status         string              `json:"status"`
-	Goal           string              `json:"goal"`
-	Stage          string              `json:"stage"`
-	Parameters     Parameters          `json:"parameters"`
-	Facts          map[string]Evidence `json:"facts"`
-	DialogueTurns  int                 `json:"dialogue_turns"`
-	NoHelpCount    int                 `json:"no_help_count"`
-	SuggestedMode  Mode                `json:"suggested_mode,omitempty"`
-	Execution      *Execution          `json:"execution,omitempty"`
-	Action         *Action             `json:"action,omitempty"`
-	LastDecision   Decision            `json:"last_decision"`
-	LastFeedback   string              `json:"last_feedback,omitempty"`
-	LastAdjustment int                 `json:"last_adjustment_turn"`
+	Version            uint64              `json:"version"`
+	HumanisticOverride *bool               `json:"humanistic_override,omitempty"`
+	Mode               Mode                `json:"mode"`
+	Status             string              `json:"status"`
+	Goal               string              `json:"goal"`
+	Stage              string              `json:"stage"`
+	Parameters         Parameters          `json:"parameters"`
+	Facts              map[string]Evidence `json:"facts"`
+	DialogueTurns      int                 `json:"dialogue_turns"`
+	NoHelpCount        int                 `json:"no_help_count"`
+	SuggestedMode      Mode                `json:"suggested_mode,omitempty"`
+	Execution          *Execution          `json:"execution,omitempty"`
+	Action             *Action             `json:"action,omitempty"`
+	LastDecision       Decision            `json:"last_decision"`
+	LastFeedback       string              `json:"last_feedback,omitempty"`
+	LastAdjustment     int                 `json:"last_adjustment_turn"`
 }
 
 func (s State) Active() bool { return ValidMode(s.Mode) && s.Status != "stopped" && s.Status != "idle" }
 
 func (s State) Clone() State {
+	if s.HumanisticOverride != nil {
+		value := *s.HumanisticOverride
+		s.HumanisticOverride = &value
+	}
 	facts := map[string]Evidence{}
 	for key, value := range s.Facts {
 		facts[key] = value
@@ -118,6 +123,7 @@ func (s State) Clone() State {
 
 type Command struct {
 	Operation   string      `json:"operation"`
+	Enabled     *bool       `json:"enabled,omitempty"`
 	Version     uint64      `json:"version"`
 	Mode        Mode        `json:"mode,omitempty"`
 	Goal        string      `json:"goal,omitempty"`
@@ -137,11 +143,32 @@ func Apply(s State, command Command, now time.Time, executionID string) (State, 
 	next.Version++
 	next.LastDecision = Decision{Kind: command.Operation, Source: command.Source, At: now.UnixMilli()}
 	switch command.Operation {
+	case "humanistic":
+		if command.Enabled == nil {
+			return s, fmt.Errorf("请指定人本主义对话开关")
+		}
+		requested := command
+		requested.Operation, requested.Mode = "start", Humanistic
+		if !*command.Enabled {
+			requested.Operation = "stop"
+		}
+		next, err := Apply(s, requested, now, executionID)
+		if err != nil {
+			return s, err
+		}
+		value := *command.Enabled
+		next.HumanisticOverride = &value
+		next.LastDecision.Kind = "humanistic"
+		next.LastDecision.Reason = "用户在界面选择人本主义对话开关"
+		return next, nil
 	case "start":
 		if !ValidMode(command.Mode) {
 			return s, fmt.Errorf("请选择有效的支持方式")
 		}
 		next.Mode, next.Status, next.Stage = command.Mode, "ready", "listening"
+		if command.Source == "user_control" {
+			next.HumanisticOverride = nil
+		}
 		next.Parameters = Defaults(command.Mode)
 		if command.Parameters != nil {
 			next.Parameters = *command.Parameters
@@ -167,6 +194,10 @@ func Apply(s State, command Command, now time.Time, executionID string) (State, 
 		next.LastDecision.Reason = "用户选择支持方式与可接受参数"
 	case "stop":
 		next.Status, next.SuggestedMode = "stopped", ""
+		if command.Source == "user_control" {
+			value := false
+			next.HumanisticOverride = &value
+		}
 		if next.Execution != nil {
 			next.Execution.Status = "interrupted"
 		}

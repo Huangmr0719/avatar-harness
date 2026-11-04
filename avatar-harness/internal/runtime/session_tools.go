@@ -20,6 +20,30 @@ type sessionControl struct {
 	DurationSeconds int               `json:"duration_seconds,omitempty"`
 }
 
+func (r *Runtime) sessionToolInstructions(t *Turn) string {
+	state := r.Store.Intervention(t.SessionID)
+	if state.HumanisticOverride != nil {
+		return "\n用户已在界面手动选择交流方式。保持当前方式，不自动调用交流方式或正念视频工具；事实问题直接回答。保留 <speak/> 提交规则，其他工具照常使用。"
+	}
+	return sessionToolPrompt
+}
+
+func (r *Runtime) sessionToolSpecs(t *Turn) []map[string]any {
+	tools := r.Bus.Spec()
+	if r.Store.Intervention(t.SessionID).HumanisticOverride == nil {
+		return tools
+	}
+	filtered := []map[string]any{}
+	for _, tool := range tools {
+		function, _ := tool["function"].(map[string]any)
+		name := provider.String(function["name"])
+		if name != "set_support_mode" && name != "start_mindfulness" {
+			filtered = append(filtered, tool)
+		}
+	}
+	return filtered
+}
+
 func (r *Runtime) registerSessionTools() {
 	r.Bus.Register("set_support_mode", func(ctx context.Context, req provider.Request, _ provider.Emit) (provider.Result, error) {
 		mode := provider.String(req.Input["mode"])
@@ -43,6 +67,9 @@ func (r *Runtime) scheduleSessionControl(ctx context.Context, req provider.Reque
 	if t == nil || t.ID != provider.String(req.Context["turn_id"]) || t.Cancelled || t.Context.Err() != nil {
 		return provider.Result{}, context.Canceled
 	}
+	if r.Store.Intervention(t.SessionID).HumanisticOverride != nil {
+		return provider.Result{}, fmt.Errorf("交流方式已由界面开关固定，请保持当前方式")
+	}
 	output := map[string]any{"scheduled": true, "mode": control.Mode, "applies_after_answer": true}
 	if control.PlayVideo {
 		if v := r.Config.PracticeVideo; v != nil {
@@ -62,7 +89,7 @@ func (r *Runtime) scheduleSessionControl(ctx context.Context, req provider.Reque
 }
 
 // Apply only after the answer has been admitted and speech generation succeeds.
-// Scheduling a tool never cancels its own turn or changes support-review versions.
+// Scheduling a tool never cancels its own turn or changes support state versions.
 func (r *Runtime) commitSessionControl(t *Turn) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -212,7 +212,7 @@ func (r *Runtime) run(t *Turn, text string, media bool, inherited []map[string]a
 	session, _ := r.Store.Session(t.SessionID)
 	character, _ := r.Character(session.CharacterID)
 	behavior, voice := r.behaviorPrompts()
-	messages := []map[string]any{{"role": "system", "content": character.Persona + behavior + commitPrompt + sessionToolPrompt}}
+	messages := []map[string]any{{"role": "system", "content": character.Persona + behavior + commitPrompt + r.sessionToolInstructions(t)}}
 	if media || r.comparison != nil {
 		messages[0]["content"] = provider.String(messages[0]["content"]) + voice
 	}
@@ -263,7 +263,7 @@ func (r *Runtime) run(t *Turn, text string, media bool, inherited []map[string]a
 	for batch := 0; batch <= r.Config.Limits.MaxToolBatches; batch++ {
 		tools := []map[string]any{}
 		if batch < r.Config.Limits.MaxToolBatches {
-			tools = r.Bus.Spec()
+			tools = r.sessionToolSpecs(t)
 		}
 		draft := len(tools) > 0
 		textOut := ""

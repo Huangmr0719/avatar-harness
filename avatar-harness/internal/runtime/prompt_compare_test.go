@@ -72,11 +72,11 @@ func TestPromptComparisonFreezesActualInputsAndSharesOnlyRisk(t *testing.T) {
 		t.Fatal(err)
 	}
 	run := awaitComparison(t, m, job.ID)
-	if run.Status != "completed" || len(run.Rounds) != 2 || risk.Load() != 2 || compose.Load() != 4 || guards.Load() != 4 {
+	if run.Status != "completed" || run.Conditions.ReviewMode != "none" || len(run.Rounds) != 2 || risk.Load() != 2 || compose.Load() != 4 || guards.Load() != 0 {
 		t.Fatal(run, risk.Load(), compose.Load(), guards.Load())
 	}
 	for _, round := range run.Rounds {
-		if !round.ConditionsMatch || round.Legacy.Text == round.Current.Text || round.Legacy.Candidate == "" || round.Legacy.FirstTextMS == nil || round.Current.Requests != 2 {
+		if !round.ConditionsMatch || round.Legacy.Text == round.Current.Text || round.Legacy.Candidate == "" || round.Legacy.FirstTextMS == nil || round.Current.Requests != 1 || round.Current.Revisions != 0 || round.Current.RepairRequests != 0 {
 			t.Fatal(round)
 		}
 	}
@@ -211,19 +211,17 @@ func TestPromptComparisonRevisionsAreCountedAndCancellationIsIsolated(t *testing
 	}
 }
 
-func TestPromptComparisonStreamsReviewedPrefixBeforeCompletion(t *testing.T) {
+func TestPromptComparisonStreamsGeneratedPrefixWithoutReview(t *testing.T) {
 	finish := make(chan struct{})
 	defer close(finish)
-	first := "这是已经通过审校、可以逐句放行的第一句话。"
+	first := "这是风险通过后直接发送的第一句话。"
 	tail := "第二句话稍后才会完成。"
 	r, _ := supportFixture(t, func(ctx context.Context, req provider.Request, emit provider.Emit) (provider.Result, error) {
 		switch req.Context["phase"] {
 		case "support.risk":
 			return streamFixture(emit, `{"level":"ordinary","quote":""}`, nil)
 		case "support.compose":
-			return streamFixture(emit, composeFixture(intervention.Plan{}, first+tail), nil)
-		case "support.guard":
-			if err := emit(map[string]any{"type": "text", "text": `{"plan":{"intent":"answer"},"decision":"approve","emotion":"neutral","intensity":0.1,"speech":"<speak/>` + first}); err != nil {
+			if err := emit(map[string]any{"type": "text", "text": `{"emotion":"neutral","intensity":0.1,"speech":"<speak/>` + first}); err != nil {
 				return provider.Result{}, err
 			}
 			select {
@@ -259,5 +257,5 @@ func TestPromptComparisonStreamsReviewedPrefixBeforeCompletion(t *testing.T) {
 		}
 		time.Sleep(time.Millisecond)
 	}
-	t.Fatal("approved prefix not observable before guard finishes")
+	t.Fatal("generated prefix not observable before generation finishes")
 }

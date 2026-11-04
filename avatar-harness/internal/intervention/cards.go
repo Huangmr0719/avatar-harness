@@ -17,7 +17,10 @@ type Card struct {
 
 var Cards = []Card{
 	{"attention-observation", Mindfulness, "attention", nil, "经用户选择才播放注意练习。自然观察画面或身边物体，不要求屏息、闭眼或获得特定感受；允许随时停止。只询问实际体验，不推断已放松。", "https://www.nhs.uk/mental-health/self-help/tips-and-support/mindfulness/", "2026-10-31.1", "original_paraphrase"},
-	{"reflect-need", Humanistic, "listen", nil, "用用户具体原话反映处境与需要，尊重用户对自己经历的解释。只想倾诉时不布置行动或追问；用户纠正后使用新说法。", "https://dictionary.apa.org/client-centered-therapy", "2026-10-31.1", "original_paraphrase"},
+	{"reflect-need", Humanistic, "listen", nil, "反映用户已表达的处境和需要；只倾诉时不建议或追问，含义清楚时不必再确认。", "https://www.bacp.co.uk/about-therapy/types-of-therapy/person-centred-counselling", "2026-11-04.1", "original_paraphrase"},
+	{"verify-understanding", Humanistic, "clarify", nil, "愿意探索且含义未知时，用一个沿用原话的开放问题核对理解；不塞入原因选项，遵守提问负担。", "https://psychclassics.yorku.ca/Rogers/therapy.htm", "2026-11-04.1", "original_paraphrase"},
+	{"explore-meaning", Humanistic, "explore", nil, "按用户方向探索一点价值或并存感受，由用户决定含义与节奏，不强行反驳认知或推进行动。", "https://www.bacp.co.uk/about-therapy/types-of-therapy/person-centred-counselling", "2026-11-04.1", "original_paraphrase"},
+	{"respect-direction", Humanistic, "stop", nil, "遵守只听、拒绝、停止或直接作答；采用最新纠正，不换措辞推动；坦诚理解限度，不虚构经历或疗效。", "https://www.bacp.co.uk/about-therapy/types-of-therapy/person-centred-counselling", "2026-11-04.1", "original_paraphrase"},
 	{"clarify-situation", CBT, "clarify", nil, "只澄清尚缺的具体情境，每轮至多一个问题。已明确的时间、预算、目标和限制直接复用。", "https://beckinstitute.org/about/understanding-cbt/", "2026-10-31.1", "original_paraphrase"},
 	{"fact-interpretation", CBT, "explore", []string{"situation"}, "区分可观察事实与用户赋予的解释。不要替用户宣判想法错误，不给认知歪曲贴标签。", "https://beckinstitute.org/about/understanding-cbt/", "2026-10-31.1", "original_paraphrase"},
 	{"check-evidence", CBT, "explore", []string{"thought"}, "合作检查支持和不支持当前想法的具体证据；只问尚未回答的一项，不预设结论或盘问。", "https://beckinstitute.org/blog/selecting-techniques-in-cbt/", "2026-10-31.1", "original_paraphrase"},
@@ -30,6 +33,16 @@ func Select(s State, intent string) Card {
 	id := "reflect-need"
 	if s.Mode == Mindfulness {
 		id = "attention-observation"
+	}
+	if s.Mode == Humanistic {
+		switch intent {
+		case "clarify":
+			id = "verify-understanding"
+		case "explore":
+			id = "explore-meaning"
+		case "stop":
+			id = "respect-direction"
+		}
 	}
 	if s.Mode == CBT {
 		switch {

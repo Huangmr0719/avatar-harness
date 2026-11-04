@@ -47,3 +47,35 @@ func TestSessionMemoryPersistsWithSourcesAndClear(t *testing.T) {
 		t.Fatal("clear did not persist", c)
 	}
 }
+
+func TestCorrectionMemoryPersistsAndOwnsReferenceSlices(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sid := s.Create("role").ID
+	s.AddHistory(sid, []map[string]any{{"role": "user", "content": "愿意分析"}, {"role": "user", "content": "这次不要分析"}})
+	ref := MemoryReference{Message: 1, Quote: "愿意分析"}
+	mem := SessionMemory{Through: 2, Entries: []MemoryEntry{{Kind: "correction", Message: 2, Quote: "这次不要分析", Replaces: []MemoryReference{ref}}}, Superseded: []MemoryReference{ref}}
+	if !s.SetMemory(sid, 2, mem) {
+		t.Fatal("memory not committed")
+	}
+	mem.Entries[0].Replaces[0].Quote = "caller mutation"
+	mem.Superseded[0].Quote = "caller mutation"
+	snap := s.Conversation(sid, 2)
+	snap.Memory.Entries[0].Replaces[0].Quote = "snapshot mutation"
+	snap.Memory.Superseded[0].Quote = "snapshot mutation"
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s, err = Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	actual := s.Conversation(sid, 2).Memory
+	if actual.Entries[0].Replaces[0] != ref || actual.Superseded[0] != ref {
+		t.Fatal("reference ownership or persistence failed", actual)
+	}
+}

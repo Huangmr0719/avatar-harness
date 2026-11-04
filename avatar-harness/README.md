@@ -8,7 +8,9 @@ Windows 电脑连接现有 data2 GPU 服务，请直接使用 [Windows Agent 部
 
 同一内网/VPN 内可将工作台全部放在 data2，推荐客户端通过 SSH 隧道访问本机网页，无需安装浏览器证书或本地构建项目，见 [data2 内网网页部署](docs/data2-web-lan.md)。直接访问内网 HTTPS 的方式也保留在该指南中。
 
-System Prompt 双栏对照：启动后访问 [`/demo/prompts`](http://127.0.0.1:8765/demo/prompts)，查看多轮回答、逐项验收、审校改写、文字延迟和导出记录。控制条件与验证范围见 [对照说明](docs/prompt-comparison.md)。
+开发对比：摄像头区域中，“开启表情分析”右侧提供“人本主义对话”开关，按会话保存；新会话默认关闭。用法与验证边界见 [人本主义对话](docs/humanistic-dialogue.md)。
+
+System Prompt 双栏对照：启动后访问 [`/demo/prompts`](http://127.0.0.1:8765/demo/prompts)，查看多轮回答、逐项验收、直接输出、文字延迟和导出记录。控制条件与验证范围见 [对照说明](docs/prompt-comparison.md)。
 
 ## 当前 Mac 启动
 
@@ -178,4 +180,4 @@ Go 主进程、provider 协议、工具循环、连续识别、流式合成、�
 
 交流支持由 LLM 通过 `set_support_mode` 选择倾听支持、认知梳理或退出；`start_mindfulness` 安排本地正念视频，在本轮引导语实际播完后启动。普通页面保留“正念练习”演示按钮，方法与参数面板仅在开发页面显示。取消、换会话和旧事件不会重新启动视频。反馈与行动记录跟随当前会话保存。见 [闭环实现](docs/intervention-feedback-loop.md) 与 [机制验收](docs/intervention-acceptance-20261031.md)。
 
-交流支持现采用风险检查与生成并行、一次审校和按句语音输出。速度、回答质量及真实起播的对照见 [提速验收](docs/intervention-speed-20261031.md)。
+交流支持采用风险检查与生成并行，风险通过后按句直接输出，已移除模型审校与改写重试。当前协议和验收见 [直接输出支持回答](docs/support-direct-stream.md)；[原提速验收](docs/intervention-speed-20261031.md) 属于历史带审校版本。
